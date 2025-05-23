@@ -1,3 +1,5 @@
+cuHPX - GPU-Accelerated utilities for data on HEALPix grids
+
 cuHPX is a library for performing transformations and analysis on HEALPix using the GPU. Currently, it supports data shuffling between the RING/NESTED layout and the flat index layout used in the earth-2 grid. Other features include differentiable spherical harmonic transformations, and regriding and interpolation between HEALPix and equiangular lat/lon grids.
 
 To setup the library, run
