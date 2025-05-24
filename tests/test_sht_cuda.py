@@ -13,35 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
 import torch
-from cuhpx import SHT, iSHT
-from cuhpx import SHTCUDA, iSHTCUDA
+
+from cuhpx import SHT, SHTCUDA, iSHT, iSHTCUDA
 
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 nside = int(input('nside: '))
 lmax = int(input('lmax: '))
-npix = 12* nside**2
-signal = torch.randn(npix, dtype = torch.float32).to(device)
+npix = 12 * nside**2
+signal = torch.randn(npix, dtype=torch.float32).to(device)
 
 quad_weights = 'ring'
 
 mmax = lmax
 
-sht = SHT(nside, lmax = lmax, mmax = mmax, quad_weights = quad_weights).to(device)
-isht = iSHT(nside, lmax = lmax, mmax = mmax).to(device)
+sht = SHT(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights).to(device)
+isht = iSHT(nside, lmax=lmax, mmax=mmax).to(device)
 
 coeff = sht(signal)
 
-sht_cuda = SHTCUDA(nside, lmax = lmax, mmax = mmax, quad_weights = quad_weights)
-isht_cuda = iSHTCUDA(nside, lmax = lmax, mmax = mmax)
+sht_cuda = SHTCUDA(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights)
+isht_cuda = iSHTCUDA(nside, lmax=lmax, mmax=mmax)
 
-diff = sht(signal)-sht_cuda(signal)
-print('diff between pytorch and cuda, sht',torch.sqrt(torch.mean(diff.abs()**2)))
+diff = sht(signal) - sht_cuda(signal)
+print('diff between pytorch and cuda, sht', torch.sqrt(torch.mean(diff.abs() ** 2)))
 
-diff = isht(torch.clone(coeff))-isht_cuda(torch.clone(coeff))
-print('diff between pytorch and cuda, isht',torch.sqrt(torch.mean(diff.abs()**2)))
-
-
+diff = isht(torch.clone(coeff)) - isht_cuda(torch.clone(coeff))
+print('diff between pytorch and cuda, isht', torch.sqrt(torch.mean(diff.abs() ** 2)))

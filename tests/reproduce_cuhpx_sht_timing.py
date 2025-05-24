@@ -13,22 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-import cuhpx
+
 import numpy as np
+import torch
+
 from cuhpx import SHTCUDA
-import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 nside = int(input('nside: '))
 lmax = int(input('lmax: '))
-mmax= lmax
+mmax = lmax
 npix = 12 * nside**2
 
 nbatch = int(input('nbatch: '))
 
-data_torch = torch.rand(npix, dtype = torch.float)
-data_batch = torch.rand(nbatch, npix, dtype = torch.float)
+data_torch = torch.rand(npix, dtype=torch.float)
+data_batch = torch.rand(nbatch, npix, dtype=torch.float)
 
 data_torch = data_torch.to(device)
 data_batch = data_batch.to(device)
@@ -62,7 +62,7 @@ for _ in range(15):
 
 # Calculate average of the last 10 timings
 avg_time_sht = np.mean(times_sht[5:])
-avg_time_sht_batch = np.mean(times_sht_batch[5:])/(nbatch)
+avg_time_sht_batch = np.mean(times_sht_batch[5:]) / (nbatch)
 
 print(f"Average time for non-batch SHTCUDA: {avg_time_sht:.6f} ms")
 print(f"Average time for batch SHTCUDA: {avg_time_sht_batch:.6f} ms")

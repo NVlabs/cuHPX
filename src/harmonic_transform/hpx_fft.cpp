@@ -163,20 +163,20 @@ torch::Tensor healpix_irfft_batch(torch::Tensor ftm, int L, int nside) {
     irfft_phase_shift_batch_dispatch(ftm, L, nside, stream);
     irfft_pre_process_x_pad_batch_dispatch(ftm, x_pad, L, padding, nside, order, stream);
     nvtxRangeEnd(pre_process_id);
-    
+
     nvtxRangeId_t forward_fft_id = nvtxRangeStart("FFT+Conv+iFFT");
     ifft->execute_forward(x_pad);
 
     x_pad = x_pad * ifft->getYpad();
     //x_y_pad_conv_batch_dispatch(x_pad, ifft->getYpad(), padding, nside);
-    
+
     ifft->execute_inverse(x_pad);
     nvtxRangeEnd(forward_fft_id);
 
     nvtxRangeId_t post_process_id = nvtxRangeStart("RFFT Post-processing + Phase shift");
     irfft_post_process_batch_dispatch(x_pad, f, nside, order, padding, stream);
     nvtxRangeEnd(post_process_id);
-    
+
     nvtxRangeEnd(range_id);
 
     return f;
@@ -228,7 +228,7 @@ torch::Tensor healpix_rfft_class(torch::Tensor f, int L, int nside) {
 }
 
 torch::Tensor healpix_irfft_class(torch::Tensor ftm, int L, int nside) {
-    
+
     int ntheta = 4 * nside - 1;
     int padding = 8 * nside;
 
@@ -246,7 +246,7 @@ torch::Tensor healpix_irfft_class(torch::Tensor ftm, int L, int nside) {
     auto x_pad = torch::zeros({ntheta, padding}, torch::dtype(dtype).device(device));
 
     // Instantiate FFT object
- 
+
     static HealpixIFFT* ifft = nullptr;
     if (!ifft || ifft->needsReconfiguration(ntheta, 1, padding, dtype, device)) {
         delete ifft; // Properly deallocate existing object
@@ -260,13 +260,13 @@ torch::Tensor healpix_irfft_class(torch::Tensor ftm, int L, int nside) {
     irfft_phase_shift_dispatch(ftm, L, nside, stream);
 
     irfft_pre_process_x_pad_dispatch(ftm, x_pad, L, padding, nside, stream);
-    
+
     ifft->execute_forward(x_pad);
 
     x_pad.mul_(ifft->getYpad());
 
     ifft->execute_inverse(x_pad);
-    
+
     irfft_post_process_dispatch(x_pad, f, nside, padding, stream);
 
     return f;
@@ -321,15 +321,15 @@ torch::Tensor healpix_rfft_cuda(torch::Tensor f, int L, int nside) {
         checkCuFFTError(cufftPlan1d(&plan, padding, CUFFT_Z2Z, ntheta));
 
         checkCuFFTError(cufftSetStream(plan, stream.stream()));
-        
-        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), 
+
+        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()),
             reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
-        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()), 
+        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()),
             reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
 
         x_pad.mul_(y_pad);
 
-        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), 
+        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()),
             reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), CUFFT_INVERSE));
 
         x_pad.div_(padding);
@@ -341,14 +341,14 @@ torch::Tensor healpix_rfft_cuda(torch::Tensor f, int L, int nside) {
 
         checkCuFFTError(cufftSetStream(plan, stream.stream()));
 
-        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), 
+        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()),
             reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), CUFFT_FORWARD));
-        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(y_pad.data_ptr<c10::complex<float>>()), 
+        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(y_pad.data_ptr<c10::complex<float>>()),
             reinterpret_cast<cufftComplex*>(y_pad.data_ptr<c10::complex<float>>()), CUFFT_FORWARD));
 
         x_pad.mul_(y_pad);
 
-        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), 
+        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()),
             reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), CUFFT_INVERSE));
 
         x_pad.div_(padding);
@@ -366,7 +366,7 @@ torch::Tensor healpix_rfft_cuda(torch::Tensor f, int L, int nside) {
 
 
 torch::Tensor healpix_irfft_cuda(torch::Tensor ftm, int L, int nside) {
-    
+
     int ntheta = ftm.size(0);
     int padding = 8 * nside;
 
@@ -407,7 +407,7 @@ torch::Tensor healpix_irfft_cuda(torch::Tensor ftm, int L, int nside) {
 
     // Launch CUDA kernel for processing fm chunks
     irfft_pre_process_dispatch(ftm, x_pad, y_pad, L, padding, nside, stream);
-    
+
     // Perform FFT on x_pad and y_pad
     cufftHandle plan;
 
@@ -418,13 +418,13 @@ torch::Tensor healpix_irfft_cuda(torch::Tensor ftm, int L, int nside) {
 
         checkCuFFTError(cufftSetStream(plan, stream.stream()));
 
-        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), 
+        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()),
             reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
-        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()), 
+        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()),
             reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
 
         x_pad.mul_(y_pad);
-        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), 
+        checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()),
             reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), CUFFT_INVERSE));
         x_pad.div_(padding);
         checkCuFFTError(cufftDestroy(plan));
@@ -435,14 +435,14 @@ torch::Tensor healpix_irfft_cuda(torch::Tensor ftm, int L, int nside) {
 
         checkCuFFTError(cufftSetStream(plan, stream.stream()));
 
-        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), 
+        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()),
             reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), CUFFT_FORWARD));
-        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(y_pad.data_ptr<c10::complex<float>>()), 
+        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(y_pad.data_ptr<c10::complex<float>>()),
             reinterpret_cast<cufftComplex*>(y_pad.data_ptr<c10::complex<float>>()), CUFFT_FORWARD));
 
         x_pad.mul_(y_pad);
 
-        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), 
+        checkCuFFTError(cufftExecC2C(plan, reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()),
             reinterpret_cast<cufftComplex*>(x_pad.data_ptr<c10::complex<float>>()), CUFFT_INVERSE));
 
         x_pad.div_(padding);
@@ -498,16 +498,16 @@ torch::Tensor healpix_rfft_cufft(torch::Tensor f, int L, int nside) {
     checkCuFFTError(cufftPlan1d(&plan, padding, CUFFT_Z2Z, ntheta));
 
     // Perform FFT on x_pad and y_pad
-    checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), 
+    checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()),
         reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
-    checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()), 
+    checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()),
         reinterpret_cast<cufftDoubleComplex*>(y_pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
 
     // Element-wise multiplication
     x_pad.mul_(y_pad);
 
     // Perform IFFT on x_pad
-    checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), 
+    checkCuFFTError(cufftExecZ2Z(plan, reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()),
         reinterpret_cast<cufftDoubleComplex*>(x_pad.data_ptr<c10::complex<double>>()), CUFFT_INVERSE));
 
     // Normalize IFFT result

@@ -13,16 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import healpy as hp
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import healpy as hp
-import cuhpx
-from cuhpx import iSHTCUDA as iSHT
-import subprocess
-import matplotlib.pyplot as plt
-import numpy as np
+from download import download_file
 
-subprocess.run(['wget', '-c', 'http://lambda.gsfc.nasa.gov/data/map/dr4/skymaps/7yr/raw/wmap_band_iqumap_r9_7yr_W_v4.fits'])
+from cuhpx import iSHTCUDA as iSHT
+
+download_file('http://lambda.gsfc.nasa.gov/data/map/dr4/skymaps/7yr/raw/wmap_band_iqumap_r9_7yr_W_v4.fits')
 
 nside = int(input("Enter the nside value: "))
 lmax = int(input("Enter the lmax value: "))  # lmax = 2*nside+1
@@ -34,6 +33,7 @@ wmap = hp.ud_grade(wmap_map_I, nside)
 data = torch.from_numpy(wmap)
 signal = data.to(device)
 
+
 class SpectralModel(nn.Module):
     def __init__(self, nside, lmax, mmax):
         super().__init__()
@@ -43,11 +43,13 @@ class SpectralModel(nn.Module):
     def forward(self):
         return self.isht(self.coeffs)
 
+
 sh_model = SpectralModel(nside, lmax, mmax).to(device)
 
 optimizer = torch.optim.Adam(sh_model.parameters(), lr=5e-2)
 
 losses = []
+
 
 def plot_and_save_map(output_map, iter_num):
     plt.figure(figsize=(10, 8))
@@ -64,6 +66,7 @@ def plot_and_save_map(output_map, iter_num):
     plt.savefig(f'output_map_iter_{iter_num}.png')
     plt.close()
 
+
 for iter in range(500):
     output_map = sh_model()
     loss = (output_map - signal).pow(2).mean()
@@ -77,4 +80,3 @@ for iter in range(500):
     if iter % 10 == 0:
         print(f'Iteration: {iter} Loss: {loss.item()}')
         plot_and_save_map(output_map, iter)
-

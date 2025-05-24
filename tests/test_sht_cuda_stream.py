@@ -13,11 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
-import torch
-from cuhpx import SHT, iSHT
-from cuhpx import SHTCUDA, iSHTCUDA
 import cuhpx_fft
+import torch
 import torch.cuda.nvtx as nvtx
 
 # Check if CUDA is available

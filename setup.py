@@ -14,8 +14,7 @@
 # limitations under the License.
 
 
-
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 setup(
@@ -35,21 +34,24 @@ setup(
         'torch_harmonics',
     ],
     ext_modules=[
-        CUDAExtension('cuhpx_remap', sources= [
-            'src/data_remapping/hpx_remapping.cpp',
-            'src/data_remapping/hpx_remapping_cuda.cu',],
+        CUDAExtension(
+            'cuhpx_remap',
+            sources=[
+                'src/data_remapping/hpx_remapping.cpp',
+                'src/data_remapping/hpx_remapping_cuda.cu',
+            ],
             extra_compile_args={'nvcc': ['-O2']},
-            extra_link_args=['-lnvToolsExt']
+            extra_link_args=['-lnvToolsExt'],
         ),
-        CUDAExtension('cuhpx_fft', sources= [
-            'src/harmonic_transform/hpx_fft.cpp',
-            'src/harmonic_transform/hpx_fft_cuda.cu',],
-            extra_compile_args={'nvcc': ['-O2','-lineinfo']},
-            extra_link_args=['-lnvToolsExt']
+        CUDAExtension(
+            'cuhpx_fft',
+            sources=[
+                'src/harmonic_transform/hpx_fft.cpp',
+                'src/harmonic_transform/hpx_fft_cuda.cu',
+            ],
+            extra_compile_args={'nvcc': ['-O2', '-lineinfo']},
+            extra_link_args=['-lnvToolsExt'],
         ),
     ],
-    cmdclass={
-        'build_ext': BuildExtension
-    }
+    cmdclass={'build_ext': BuildExtension},
 )
-

@@ -46,7 +46,7 @@ torch::Tensor nest2ring(torch::Tensor data_in_nest, const int nside, const size_
     return data_in_ring;
 }
 
-torch::Tensor nest2xy(torch::Tensor data_in_nest, const std::string& origin, const bool clockwise, 
+torch::Tensor nest2xy(torch::Tensor data_in_nest, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;
@@ -80,7 +80,7 @@ torch::Tensor nest2xy(torch::Tensor data_in_nest, const std::string& origin, con
     return data_in_xy;
 }
 
-torch::Tensor xy2nest(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise, 
+torch::Tensor xy2nest(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;
@@ -115,7 +115,7 @@ torch::Tensor xy2nest(torch::Tensor data_in_xy, const std::string& origin, const
     return data_in_nest;
 }
 
-torch::Tensor ring2xy(torch::Tensor data_in_ring, const std::string& origin, const bool clockwise, 
+torch::Tensor ring2xy(torch::Tensor data_in_ring, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;
@@ -149,7 +149,7 @@ torch::Tensor ring2xy(torch::Tensor data_in_ring, const std::string& origin, con
     return data_in_xy;
 }
 
-torch::Tensor xy2ring(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise, 
+torch::Tensor xy2ring(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;
@@ -266,7 +266,7 @@ torch::Tensor nest2ring_batch(torch::Tensor data_in_nest, const int nside, const
     return data_in_ring;
 }
 
-torch::Tensor nest2xy_batch(torch::Tensor data_in_nest, const std::string& origin, const bool clockwise, 
+torch::Tensor nest2xy_batch(torch::Tensor data_in_nest, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;
@@ -300,7 +300,7 @@ torch::Tensor nest2xy_batch(torch::Tensor data_in_nest, const std::string& origi
     return data_in_xy;
 }
 
-torch::Tensor xy2nest_batch(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise, 
+torch::Tensor xy2nest_batch(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;
@@ -335,7 +335,7 @@ torch::Tensor xy2nest_batch(torch::Tensor data_in_xy, const std::string& origin,
     return data_in_nest;
 }
 
-torch::Tensor ring2xy_batch(torch::Tensor data_in_ring, const std::string& origin, const bool clockwise, 
+torch::Tensor ring2xy_batch(torch::Tensor data_in_ring, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;
@@ -369,7 +369,7 @@ torch::Tensor ring2xy_batch(torch::Tensor data_in_ring, const std::string& origi
     return data_in_xy;
 }
 
-torch::Tensor xy2ring_batch(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise, 
+torch::Tensor xy2ring_batch(torch::Tensor data_in_xy, const std::string& origin, const bool clockwise,
         const int nside, const size_t num_elements) {
 
     const size_t expected_num_elements = static_cast<size_t>(nside)*nside*12;

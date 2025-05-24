@@ -13,11 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import cuhpx_remap
+import torch
+
 
 def is_power_of_two(n):
     return (n > 0) and (n & (n - 1)) == 0
+
 
 def ring2nest(data: torch.Tensor, nside: int):
 
@@ -29,6 +31,7 @@ def ring2nest(data: torch.Tensor, nside: int):
     else:
         return cuhpx_remap.ring2nest_batch(data, nside, data.size(-1))
 
+
 def nest2ring(data: torch.Tensor, nside: int):
 
     if not is_power_of_two(nside):
@@ -39,15 +42,17 @@ def nest2ring(data: torch.Tensor, nside: int):
     else:
         return cuhpx_remap.nest2ring_batch(data, nside, data.size(-1))
 
+
 def nest2flat(data: torch.Tensor, origin: str, clockwise: bool, nside: int):
 
     if not is_power_of_two(nside):
         raise ValueError("nside must be a power of two")
- 
+
     if data.dim() == 1:
         return cuhpx_remap.nest2xy(data, origin, clockwise, nside, data.size(-1))
     else:
         return cuhpx_remap.nest2xy_batch(data, origin, clockwise, nside, data.size(-1))
+
 
 def flat2nest(data: torch.Tensor, origin: str, clockwise: bool, nside: int):
 
@@ -59,6 +64,7 @@ def flat2nest(data: torch.Tensor, origin: str, clockwise: bool, nside: int):
     else:
         return cuhpx_remap.xy2nest_batch(data, origin, clockwise, nside, data.size(-1))
 
+
 def ring2flat(data: torch.Tensor, origin: str, clockwise: bool, nside: int):
 
     if not is_power_of_two(nside):
@@ -68,6 +74,7 @@ def ring2flat(data: torch.Tensor, origin: str, clockwise: bool, nside: int):
         return cuhpx_remap.ring2xy(data, origin, clockwise, nside, data.size(-1))
     else:
         return cuhpx_remap.ring2xy_batch(data, origin, clockwise, nside, data.size(-1))
+
 
 def flat2ring(data: torch.Tensor, origin: str, clockwise: bool, nside: int):
 
@@ -79,7 +86,10 @@ def flat2ring(data: torch.Tensor, origin: str, clockwise: bool, nside: int):
     else:
         return cuhpx_remap.xy2ring_batch(data, origin, clockwise, nside, data.size(-1))
 
-def flat2flat(data: torch.Tensor, src_origin: str, src_clockwise: bool, dest_origin: str, dest_clockwise: bool, nside: int):
+
+def flat2flat(
+    data: torch.Tensor, src_origin: str, src_clockwise: bool, dest_origin: str, dest_clockwise: bool, nside: int
+):
 
     if not is_power_of_two(nside):
         raise ValueError("nside must be a power of two")
@@ -87,4 +97,6 @@ def flat2flat(data: torch.Tensor, src_origin: str, src_clockwise: bool, dest_ori
     if data.dim() == 1:
         return cuhpx_remap.xy2xy(data, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, data.size(-1))
     else:
-        return cuhpx_remap.xy2xy_batch(data, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, data.size(-1))
+        return cuhpx_remap.xy2xy_batch(
+            data, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, data.size(-1)
+        )

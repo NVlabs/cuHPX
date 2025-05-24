@@ -69,9 +69,9 @@ void rfft_pre_process_x_pad_batch_float4_dispatch(torch::Tensor x_pad, torch::Te
 class HealpixFFT{
 public:
     // Constructor initializes only the essential variables and FFT plan
-    HealpixFFT(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream& stream) 
+    HealpixFFT(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream& stream)
         : ntheta_(ntheta), n_(n), padding_(padding), dtype_(dtype), device_(device), y_pad_initialized_(false), stream_(stream){
-        
+
         if (dtype == torch::kComplexDouble) {
             checkCuFFTError(cufftPlan1d(&plan_, padding_, CUFFT_Z2Z, ntheta_ * n));
         } else if (dtype == torch::kComplexFloat) {
@@ -102,20 +102,20 @@ public:
 
     void execute_forward(torch::Tensor& pad) {
         if (dtype_ == torch::kComplexDouble) {
-            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), 
+            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()),
                 reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
         } else if (dtype_ == torch::kComplexFloat) {
-            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), 
+            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()),
                 reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), CUFFT_FORWARD));
         }
     }
 
     void execute_inverse(torch::Tensor& pad) {
         if (dtype_ == torch::kComplexDouble) {
-            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), 
+            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()),
                 reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), CUFFT_INVERSE));
         } else if (dtype_ == torch::kComplexFloat) {
-            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), 
+            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()),
                 reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), CUFFT_INVERSE));
         }
     }
@@ -131,13 +131,13 @@ public:
 
     // Method to check and update the stream (non-const)
     void updateStreamIfNeeded(at::cuda::CUDAStream& stream) {
-        
+
         // Set the plan to the new stream
         checkCuFFTError(cufftSetStream(plan_, stream.stream()));
         stream_ = stream;
     }
 
-    
+
     // Getters for current configuration
     int getNtheta() const { return ntheta_; }
     int getPadding() const { return padding_; }
@@ -165,9 +165,9 @@ private:
 
 class HealpixIFFT {
 public:
-    HealpixIFFT(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream& stream) 
+    HealpixIFFT(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream& stream)
         : ntheta_(ntheta), n_(n), padding_(padding), dtype_(dtype), device_(device), y_pad_initialized_(false), stream_(stream){
-        
+
         if (dtype == torch::kComplexDouble) {
             checkCuFFTError(cufftPlan1d(&plan_, padding_, CUFFT_Z2Z, ntheta_ * n));
         } else if (dtype == torch::kComplexFloat) {
@@ -196,20 +196,20 @@ public:
 
     void execute_forward(torch::Tensor& pad) {
         if (dtype_ == torch::kComplexDouble) {
-            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), 
+            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()),
                 reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), CUFFT_FORWARD));
         } else if (dtype_ == torch::kComplexFloat) {
-            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), 
+            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()),
                 reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), CUFFT_FORWARD));
         }
     }
 
     void execute_inverse(torch::Tensor& pad) {
         if (dtype_ == torch::kComplexDouble) {
-            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), 
+            checkCuFFTError(cufftExecZ2Z(plan_, reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()),
                 reinterpret_cast<cufftDoubleComplex*>(pad.data_ptr<c10::complex<double>>()), CUFFT_INVERSE));
         } else if (dtype_ == torch::kComplexFloat) {
-            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), 
+            checkCuFFTError(cufftExecC2C(plan_, reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()),
                 reinterpret_cast<cufftComplex*>(pad.data_ptr<c10::complex<float>>()), CUFFT_INVERSE));
         }
     }

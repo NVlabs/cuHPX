@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-import cuhpx as hpx
 import healpy as hp
+import torch
+
+import cuhpx as hpx
 
 # Read the order value from user input
 nside = int(input("Enter the nside value: "))
@@ -23,6 +24,7 @@ nelements = 12 * nside**2
 
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 # Function to test ring2nest and nest2ring for a given dtype
 def test_ring2nest_nest2ring(dtype):
@@ -66,9 +68,9 @@ def test_ring2nest_nest2ring(dtype):
     print(f"HPX nest2ring result (dtype={dtype}) first 5 elements:", result_tensor_hpx_ring[:5])
     print(f"Healpy nest2ring result (dtype={dtype}) first 5 elements:", result_tensor_healpy_ring[:5])
 
+
 # Test for int32
 test_ring2nest_nest2ring(torch.int32)
 
 # Test for float64 (double)
 test_ring2nest_nest2ring(torch.float64)
-

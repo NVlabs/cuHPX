@@ -13,14 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .hpx_sht import SHT, iSHT
 from . import sht_tools
-
-from .hpx_regrid import Grid
-from .hpx_regrid import Regridding
-
-from .hpx_remap import ring2nest, nest2ring, ring2flat, flat2ring
-from .hpx_remap import nest2flat, flat2nest, flat2flat
-from .hpx_sht import SHTCUDA, iSHTCUDA
-
-from .hpx_sht import VectorSHT, VectoriSHT
+from .hpx_regrid import Grid, Regridding
+from .hpx_remap import flat2flat, flat2nest, flat2ring, nest2flat, nest2ring, ring2flat, ring2nest
+from .hpx_sht import SHT, SHTCUDA, VectoriSHT, VectorSHT, iSHT, iSHTCUDA

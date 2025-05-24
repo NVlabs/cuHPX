@@ -13,18 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-import healpy as hp
-import cuhpx
-import numpy as np
 import time
+
+import healpy as hp
+import numpy as np
+import torch
+
+import cuhpx
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 nside = int(input('nside: '))
 nbatch = int(input('batch size: '))
 
-npix = 12*nside**2
+npix = 12 * nside**2
 
 data = torch.rand(npix)
 data_np = data.numpy()
@@ -39,9 +41,9 @@ for _ in range(15):
     start_cuhpx = torch.cuda.Event(enable_timing=True)
     end_cuhpx = torch.cuda.Event(enable_timing=True)
     start_cuhpx.record()
-    
+
     data = cuhpx.nest2ring(data, nside)
-    
+
     end_cuhpx.record()
     torch.cuda.synchronize()  # Ensure timing has finished
     cuhpx_times.append(start_cuhpx.elapsed_time(end_cuhpx))
@@ -75,7 +77,7 @@ for _ in range(15):
     batch_times.append(start_batch.elapsed_time(end_batch))
 
 
-avg_batch_time = np.mean(batch_times[5:])/nbatch
+avg_batch_time = np.mean(batch_times[5:]) / nbatch
 
 print(f'Average time for batch cuhpx.nest2ring: {avg_batch_time} ms')
 print(f'Speed up by non-batch cuhpx: {avg_hp_time/avg_cuhpx_time}')

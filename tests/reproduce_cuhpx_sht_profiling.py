@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import torch
+
 from cuhpx import SHTCUDA, iSHTCUDA
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

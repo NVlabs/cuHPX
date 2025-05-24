@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
 import torch
+
 from cuhpx import SHT, iSHT
 
 # Check if CUDA is available
@@ -23,18 +23,18 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 nside = int(input('nside: '))
 lmax = int(input('lmax: '))
 
-npix = 12* nside**2
-signal = torch.randn(npix, dtype = torch.float32).to(device)
+npix = 12 * nside**2
+signal = torch.randn(npix, dtype=torch.float32).to(device)
 
 
 quad_weights = 'ring'
 mmax = lmax
 
-sht_torch = SHT(nside, lmax = lmax, mmax = mmax, quad_weights = quad_weights).to(device)
-isht_torch = iSHT(nside, lmax = lmax, mmax = mmax).to(device)
+sht_torch = SHT(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights).to(device)
+isht_torch = iSHT(nside, lmax=lmax, mmax=mmax).to(device)
 
-sht_bs = SHT(nside, lmax = lmax, mmax = mmax, quad_weights = quad_weights, use_bluestein=True).to(device)
-isht_bs = iSHT(nside, lmax = lmax, mmax = mmax, use_bluestein=True).to(device)
+sht_bs = SHT(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights, use_bluestein=True).to(device)
+isht_bs = iSHT(nside, lmax=lmax, mmax=mmax, use_bluestein=True).to(device)
 
 coeff = sht_torch(signal)
 
@@ -45,4 +45,3 @@ print('diff between sht torch and sht bluestein: ', torch.mean(diff.abs()))
 diff = isht_torch(torch.clone(coeff)) - isht_bs(torch.clone(coeff))
 
 print('diff between isht torch and sht bluestein: ', torch.mean(diff.abs()))
-

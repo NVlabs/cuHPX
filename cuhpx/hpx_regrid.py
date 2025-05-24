@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-import cuhpx
 import torch_harmonics
+
+import cuhpx
+
 
 class Grid:
 
@@ -33,7 +34,7 @@ class Grid:
         elif self.grid in ['legendre-gauss', 'lobatto', 'equiangular']:
             self.nlat, self.nlon = grid_size
         else:
-            raise(ValueError("Unknown quadrature mode"))
+            raise (ValueError("Unknown quadrature mode"))
 
 
 class Regridding:
@@ -41,7 +42,7 @@ class Regridding:
         self.lmax = lmax or self._determine_lmax(src_grid, dest_grid)
         self.mmax = mmax or self._determine_mmax(src_grid, dest_grid)
         self.device = device
-        self.enable_cuda = enable_cuda # if True, use cuhpx.SHTCUDA than cuhpx.SHT
+        self.enable_cuda = enable_cuda  # if True, use cuhpx.SHTCUDA than cuhpx.SHT
 
         self.sht = self._initialize_sht(src_grid, self.lmax, self.mmax).to(device)
         self.isht = self._initialize_isht(dest_grid, self.lmax, self.mmax).to(device)
@@ -65,7 +66,9 @@ class Regridding:
                 return cuhpx.SHT(grid.nside, lmax=lmax, mmax=mmax, norm=grid.norm, csphase=grid.csphase)
 
         elif grid.grid in ['legendre-gauss', 'lobatto', 'equiangular']:
-            return torch_harmonics.RealSHT(grid.nlat, grid.nlon, lmax=lmax, mmax=mmax, norm=grid.norm, csphase=grid.csphase)
+            return torch_harmonics.RealSHT(
+                grid.nlat, grid.nlon, lmax=lmax, mmax=mmax, norm=grid.norm, csphase=grid.csphase
+            )
         else:
             raise ValueError("Unknown quadrature mode")
 
@@ -76,12 +79,13 @@ class Regridding:
                 return cuhpx.iSHTCUDA(grid.nside, lmax=lmax, mmax=mmax, norm=grid.norm, csphase=grid.csphase)
             else:
                 return cuhpx.iSHT(grid.nside, lmax=lmax, mmax=mmax, norm=grid.norm, csphase=grid.csphase)
-                
+
         elif grid.grid in ['legendre-gauss', 'lobatto', 'equiangular']:
-            return torch_harmonics.InverseRealSHT(grid.nlat, grid.nlon, lmax=lmax, mmax=mmax, norm=grid.norm, csphase=grid.csphase)
+            return torch_harmonics.InverseRealSHT(
+                grid.nlat, grid.nlon, lmax=lmax, mmax=mmax, norm=grid.norm, csphase=grid.csphase
+            )
         else:
             raise ValueError("Unknown quadrature mode")
 
     def execute(self, f):
         return self.isht(self.sht(f))
-

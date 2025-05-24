@@ -14,23 +14,27 @@
 # limitations under the License.
 
 import random
+
 import torch
+
 from cuhpx import SHT, iSHT
+
 
 def random_fill_matrix(n, xmax, matrix):
     for _ in range(n):
         v = random.random()  # Generate a random float number between 0 and 1
-        x = random.randint(0, xmax-1)  # Generate a random int number, 0 <= x < xmax
+        x = random.randint(0, xmax - 1)  # Generate a random int number, 0 <= x < xmax
         y = random.randint(0, x)  # Generate a random int number, 0 <= y <= x
         matrix[x, y] = v  # Fill the matrix at position (x, y) with the value v
 
     return matrix
 
+
 def generate_xyv(n, xmax, xmin):
     v, x, y = [], [], []
     for _ in range(n):
         vi = random.random()  # Generate a random float number between 0 and 1
-        xi = random.randint(xmin, xmax-1)  # Generate a random int number, 0 <= x < xmax
+        xi = random.randint(xmin, xmax - 1)  # Generate a random int number, 0 <= x < xmax
         yi = random.randint(xmin, xi)  # Generate a random int number, 0 <= y <= x
 
         v.append(vi)
@@ -39,12 +43,14 @@ def generate_xyv(n, xmax, xmin):
 
     return x, y, v
 
+
 def fill_matrix(x, y, v, matrix):
 
     n = len(x)
     for i in range(n):
         matrix[x[i], y[i]] = v[i]  # Fill the matrix at position (x, y) with the value v
     return matrix
+
 
 xmax = 64
 xmin = 0
@@ -53,15 +59,15 @@ xg, yg, vg = generate_xyv(100, xmax, xmin)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 nside = int(input("Enter the nside value (>=32): "))
-npix = 12* nside**2
+npix = 12 * nside**2
 quad_weights = "ring"
 
-lmax = 2*nside+1
+lmax = 2 * nside + 1
 lmax = 65
 mmax = lmax
 
-sht = SHT(nside, lmax = lmax, mmax=mmax, quad_weights = quad_weights).to(device)
-isht = iSHT(nside, lmax = lmax, mmax=mmax).to(device)
+sht = SHT(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights).to(device)
+isht = iSHT(nside, lmax=lmax, mmax=mmax).to(device)
 
 coeff_ori = torch.zeros((lmax, mmax), dtype=torch.complex128)
 coeff_ori = fill_matrix(xg, yg, vg, coeff_ori).to(device)

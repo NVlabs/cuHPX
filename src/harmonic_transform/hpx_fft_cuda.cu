@@ -169,7 +169,7 @@ template <typename T> __global__ void rfft_phase_shift(c10::complex<T>* ftm, int
     int iring = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (m < L && iring < 4*nside-1){
-        
+
         T phi_ring_offset = d_p2phi_ring<T>(iring, 0, nside);
 
         c10::complex<T> phase_shift = compute_complex_exp(-phi_ring_offset * m);
@@ -213,13 +213,13 @@ template <typename T> __global__ void irfft_pre_process(c10::complex<T>* ftm, c1
 
         int iring, iphi, nphi;
         computer_iring_iphi_nphi(ipix, iring, iphi, nphi, order, nside);
-        
+
         c10::complex<T> fm;
 
         if (iphi < std::min(nphi/2+1, L)){
             fm= ftm[iring*L + iphi];
         }
-        else if (iphi > nphi - std::min(nphi/2+1, L)){ 
+        else if (iphi > nphi - std::min(nphi/2+1, L)){
             fm= conj(ftm[iring*L + nphi - iphi]);
         }
         else{
@@ -242,7 +242,7 @@ template <typename T> __global__ void irfft_pre_process(c10::complex<T>* ftm, c1
 
 }
 
-template <typename T> __global__ void irfft_pre_process_x_pad(c10::complex<T>* ftm, c10::complex<T>* x_pad, 
+template <typename T> __global__ void irfft_pre_process_x_pad(c10::complex<T>* ftm, c10::complex<T>* x_pad,
     int L, int padding, int nside) {
 
     int ipix = blockIdx.x * blockDim.x + threadIdx.x;
@@ -264,7 +264,7 @@ template <typename T> __global__ void irfft_pre_process_x_pad(c10::complex<T>* f
         if (iphi < std::min(nphi/2+1, L)){
             fm = ftm[iring*L + iphi];
         }
-        else if (iphi > nphi- std::min(nphi/2+1, L)){ 
+        else if (iphi > nphi- std::min(nphi/2+1, L)){
             fm = conj(ftm[iring*L + nphi - iphi]);
         }
         else{
@@ -412,7 +412,7 @@ template <typename I> __device__ inline int d_isqrt(I arg){
 }
 
 
-template <typename I> __device__ inline void ring_idx2theta_phi(const I pix, I& iring, I& iphi, 
+template <typename I> __device__ inline void ring_idx2theta_phi(const I pix, I& iring, I& iphi,
         const int order, const I nside){
 
     I npface = nside * nside;
@@ -485,37 +485,37 @@ template<typename I> __device__ inline int compute_order(I nside) {
     return res;
 }
 
-template<typename T> void rfft_pre_process_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* y_pad, 
+template<typename T> void rfft_pre_process_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* y_pad,
     const T* f, int padding, int nside, at::cuda::CUDAStream& stream) {
 
     int threadsPerBlock = 256;
     int npix= 12 * nside * nside;
     int blocksPerGrid = (npix + threadsPerBlock - 1) / threadsPerBlock;
     rfft_pre_process<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(x_pad, y_pad, f, padding, nside);
-    
+
 }
 
-template<typename T> void rfft_pre_process_x_pad_kernel_wrapper(c10::complex<T>* x_pad, const T* f, int padding, 
+template<typename T> void rfft_pre_process_x_pad_kernel_wrapper(c10::complex<T>* x_pad, const T* f, int padding,
     int nside, at::cuda::CUDAStream& stream) {
 
     int threadsPerBlock = 256;
     int npix= 12 * nside * nside;
     int blocksPerGrid = (npix + threadsPerBlock - 1) / threadsPerBlock;
     rfft_pre_process_x_pad<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(x_pad, f, padding, nside);
-    
+
 }
 
-template<typename T> void rfft_pre_process_y_pad_kernel_wrapper(c10::complex<T>* y_pad, int padding, 
+template<typename T> void rfft_pre_process_y_pad_kernel_wrapper(c10::complex<T>* y_pad, int padding,
     int nside, at::cuda::CUDAStream& stream) {
 
     int threadsPerBlock = 256;
     int npix= 12 * nside * nside;
     int blocksPerGrid = (npix + threadsPerBlock - 1) / threadsPerBlock;
     rfft_pre_process_y_pad<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(y_pad, padding, nside);
-    
+
 }
 
-template<typename T> void rfft_post_process_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* ftm, int L, 
+template<typename T> void rfft_post_process_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* ftm, int L,
     int padding, int nside, at::cuda::CUDAStream& stream) {
 
     int threadsPerBlock = 256;
@@ -526,7 +526,7 @@ template<typename T> void rfft_post_process_kernel_wrapper(c10::complex<T>* x_pa
 
 
 template<typename T> void rfft_phase_shift_kernel_wrapper(c10::complex<T>* ftm, int L, int nside, at::cuda::CUDAStream& stream) {
-    
+
 
     dim3 threadsPerBlock(32, 16);
     dim3 blocksPerGrid((L + threadsPerBlock.x - 1) / threadsPerBlock.x,
@@ -536,7 +536,7 @@ template<typename T> void rfft_phase_shift_kernel_wrapper(c10::complex<T>* ftm, 
 }
 
 template<typename T> void irfft_phase_shift_kernel_wrapper(c10::complex<T>* ftm, int L, int nside, at::cuda::CUDAStream& stream) {
-    
+
 
     dim3 threadsPerBlock(32, 16);
     dim3 blocksPerGrid((L + threadsPerBlock.x - 1) / threadsPerBlock.x,
@@ -545,44 +545,44 @@ template<typename T> void irfft_phase_shift_kernel_wrapper(c10::complex<T>* ftm,
     irfft_phase_shift<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(ftm, L, nside);
 }
 
-template<typename T> void irfft_pre_process_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad, 
+template<typename T> void irfft_pre_process_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad,
     c10::complex<T>* y_pad, int L, int padding, int nside, at::cuda::CUDAStream& stream) {
 
     int npix = 12 * nside * nside;
     int threadsPerBlock = 256;
     int blocksPerGrid = (npix + threadsPerBlock - 1) / threadsPerBlock;
     irfft_pre_process<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(ftm, x_pad, y_pad, L, padding, nside);
-    
+
 }
 
-template<typename T> void irfft_pre_process_x_pad_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad, 
+template<typename T> void irfft_pre_process_x_pad_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad,
     int L, int padding, int nside, at::cuda::CUDAStream& stream) {
 
     int npix = 12 * nside * nside;
     int threadsPerBlock = 256;
     int blocksPerGrid = (npix + threadsPerBlock - 1) / threadsPerBlock;
     irfft_pre_process_x_pad<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(ftm, x_pad, L, padding, nside);
-    
+
 }
 
-template<typename T> void irfft_pre_process_y_pad_kernel_wrapper(c10::complex<T>* y_pad, int padding, 
+template<typename T> void irfft_pre_process_y_pad_kernel_wrapper(c10::complex<T>* y_pad, int padding,
     int nside, at::cuda::CUDAStream& stream) {
 
     int npix = 12 * nside * nside;
     int threadsPerBlock = 256;
     int blocksPerGrid = (npix + threadsPerBlock - 1) / threadsPerBlock;
     irfft_pre_process_y_pad<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(y_pad, padding, nside);
-    
+
 }
 
-template<typename T> void irfft_post_process_kernel_wrapper(c10::complex<T>* x_pad, T* f, int nside, 
+template<typename T> void irfft_post_process_kernel_wrapper(c10::complex<T>* x_pad, T* f, int nside,
     int padding, at::cuda::CUDAStream& stream) {
 
     int npix = 12 * nside * nside;
     int threadsPerBlock = 256;
     int blocksPerGrid = (npix + threadsPerBlock - 1) / threadsPerBlock;
     irfft_post_process<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(x_pad, f, nside, padding);
-    
+
 }
 
 
@@ -638,7 +638,7 @@ void rfft_pre_process_y_pad_dispatch(torch::Tensor y_pad, int padding, int nside
 
 void rfft_post_process_dispatch(torch::Tensor x_pad, torch::Tensor ftm, int L, int padding, int nside, at::cuda::CUDAStream& stream) {
     DISPATCH_COMPLEX_FLOAT_TYPES(x_pad.scalar_type(), "rfft_post_process", [&] {
-        
+
         auto x_pad_ptr = x_pad.data_ptr<c10::complex<scalar_t>>();
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         rfft_post_process_kernel_wrapper<scalar_t>(x_pad_ptr, ftm_ptr, L, padding, nside, stream);
@@ -647,7 +647,7 @@ void rfft_post_process_dispatch(torch::Tensor x_pad, torch::Tensor ftm, int L, i
 
 void rfft_phase_shift_dispatch(torch::Tensor ftm, int L, int nside, at::cuda::CUDAStream& stream) {
     DISPATCH_COMPLEX_FLOAT_TYPES(ftm.scalar_type(), "rfft_phase_shift", [&] {
-        
+
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         rfft_phase_shift_kernel_wrapper<scalar_t>(ftm_ptr, L, nside, stream);
     });
@@ -655,7 +655,7 @@ void rfft_phase_shift_dispatch(torch::Tensor ftm, int L, int nside, at::cuda::CU
 
 void irfft_phase_shift_dispatch(torch::Tensor ftm, int L, int nside, at::cuda::CUDAStream& stream) {
     DISPATCH_COMPLEX_FLOAT_TYPES(ftm.scalar_type(), "irfft_phase_shift", [&] {
-        
+
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         irfft_phase_shift_kernel_wrapper<scalar_t>(ftm_ptr, L, nside, stream);
     });
@@ -663,7 +663,7 @@ void irfft_phase_shift_dispatch(torch::Tensor ftm, int L, int nside, at::cuda::C
 
 void irfft_pre_process_dispatch(torch::Tensor ftm, torch::Tensor x_pad, torch::Tensor y_pad, int L, int padding, int nside, at::cuda::CUDAStream& stream) {
     DISPATCH_COMPLEX_FLOAT_TYPES(ftm.scalar_type(), "irfft_pre_process", [&] {
-        
+
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         auto x_pad_ptr = x_pad.data_ptr<c10::complex<scalar_t>>();
         auto y_pad_ptr = y_pad.data_ptr<c10::complex<scalar_t>>();
@@ -673,7 +673,7 @@ void irfft_pre_process_dispatch(torch::Tensor ftm, torch::Tensor x_pad, torch::T
 
 void irfft_pre_process_x_pad_dispatch(torch::Tensor ftm, torch::Tensor x_pad, int L, int padding, int nside, at::cuda::CUDAStream& stream) {
     DISPATCH_COMPLEX_FLOAT_TYPES(ftm.scalar_type(), "irfft_pre_process_x_pad", [&] {
-        
+
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         auto x_pad_ptr = x_pad.data_ptr<c10::complex<scalar_t>>();
 
@@ -683,7 +683,7 @@ void irfft_pre_process_x_pad_dispatch(torch::Tensor ftm, torch::Tensor x_pad, in
 
 void irfft_pre_process_y_pad_dispatch(torch::Tensor y_pad, int padding, int nside, at::cuda::CUDAStream& stream) {
     DISPATCH_COMPLEX_FLOAT_TYPES(y_pad.scalar_type(), "irfft_pre_process_y_pad", [&] {
-        
+
         auto y_pad_ptr = y_pad.data_ptr<c10::complex<scalar_t>>();
         irfft_pre_process_y_pad_kernel_wrapper<scalar_t>(y_pad_ptr, padding, nside, stream);
     });
@@ -700,12 +700,12 @@ void irfft_post_process_dispatch(torch::Tensor x_pad, torch::Tensor f, int nside
 }
 
 
-// batched 
+// batched
 
 template <typename T>
-__global__ void rfft_pre_process_x_pad_batch(c10::complex<T>* x_pad, const T* f, const int padding, 
+__global__ void rfft_pre_process_x_pad_batch(c10::complex<T>* x_pad, const T* f, const int padding,
         const int nside, const int order, const size_t m, const size_t n) {
-    
+
     // f: 3D tensor, m by n by npix
     // x_pad: 4D tensor, m by n by nring (4*nside-1) by padding
 
@@ -719,7 +719,7 @@ __global__ void rfft_pre_process_x_pad_batch(c10::complex<T>* x_pad, const T* f,
 
     // Ensure the indices are within bounds
     if (idx < npix && idy < n && idz < m) {
- 
+
         int iring, iphi, nphi;
         computer_iring_iphi_nphi(idx, iring, iphi, nphi, order, nside);
 
@@ -735,7 +735,7 @@ __global__ void rfft_pre_process_x_pad_batch(c10::complex<T>* x_pad, const T* f,
 }
 
 
-template <typename T> __global__ void rfft_post_process_batch(const c10::complex<T>* x_pad, c10::complex<T>* ftm, 
+template <typename T> __global__ void rfft_post_process_batch(const c10::complex<T>* x_pad, c10::complex<T>* ftm,
     const int L, const int padding, const int nside, const int order, const size_t m, const size_t n){
 
     // x_pad: 4D tensor, m by n by nring by padding
@@ -773,7 +773,7 @@ template <typename T> __global__ void rfft_post_process_batch(const c10::complex
 
 }
 
-template <typename T> __global__ void rfft_phase_shift_batch(c10::complex<T>* ftm, const int L, 
+template <typename T> __global__ void rfft_phase_shift_batch(c10::complex<T>* ftm, const int L,
     const int nside, const size_t m, const size_t n) {
 
     // ftm: 4D tensor m by n by nring by L
@@ -786,7 +786,7 @@ template <typename T> __global__ void rfft_phase_shift_batch(c10::complex<T>* ft
     int nring = 4 * nside -1;
 
     if (idx < L && iring < nring && idz < m*n){
-        
+
         T phi_ring_offset = d_p2phi_ring<T>(iring, 0, nside);
         c10::complex<T> phase_shift = compute_complex_exp(-phi_ring_offset * idx);
 
@@ -821,7 +821,7 @@ template <typename T> __global__ void x_y_pad_conv_batch(c10::complex<T>* x_pad,
 }
 
 
-template <typename T> __global__ void irfft_phase_shift_batch(c10::complex<T>* ftm, const int L, 
+template <typename T> __global__ void irfft_phase_shift_batch(c10::complex<T>* ftm, const int L,
     const int nside, const size_t m, const size_t n) {
 
     // ftm: 4D tensor m by n by nring by L
@@ -834,7 +834,7 @@ template <typename T> __global__ void irfft_phase_shift_batch(c10::complex<T>* f
     int nring = 4 * nside -1;
 
     if (idx < L && iring < nring && idz < m*n){
-        
+
         T phi_ring_offset = d_p2phi_ring<T>(iring, 0, nside);
         c10::complex<T> phase_shift = compute_complex_exp(phi_ring_offset * idx);
 
@@ -846,7 +846,7 @@ template <typename T> __global__ void irfft_phase_shift_batch(c10::complex<T>* f
 }
 
 
-template <typename T> __global__ void irfft_pre_process_x_pad_batch(const c10::complex<T>* ftm, c10::complex<T>* x_pad, 
+template <typename T> __global__ void irfft_pre_process_x_pad_batch(const c10::complex<T>* ftm, c10::complex<T>* x_pad,
     const int L, const int padding, const int nside, const int order, const size_t m, const size_t n) {
 
     // x_pad: 4D tensor, m by n by nring by padding
@@ -870,7 +870,7 @@ template <typename T> __global__ void irfft_pre_process_x_pad_batch(const c10::c
             int ftm_idx =  (idz * n + idy)* nring * L + iring * L + iphi;
             fm = ftm[ftm_idx];
         }
-        else if (iphi > nphi - std::min(nphi/2+1, L)){ 
+        else if (iphi > nphi - std::min(nphi/2+1, L)){
             int ftm_idx =  (idz * n + idy)* nring * L + iring * L + nphi - iphi;
             fm = conj(ftm[ftm_idx]);
         }
@@ -891,7 +891,7 @@ template <typename T> __global__ void irfft_pre_process_x_pad_batch(const c10::c
 }
 
 
-template <typename T> __global__ void irfft_post_process_batch(const c10::complex<T>* x_pad, T* f, const int nside, 
+template <typename T> __global__ void irfft_post_process_batch(const c10::complex<T>* x_pad, T* f, const int nside,
     const int order, const int padding, const size_t m, const size_t n) {
 
     // f: 3D tensor, m by n by npix
@@ -922,7 +922,7 @@ template <typename T> __global__ void irfft_post_process_batch(const c10::comple
 }
 
 
-template<typename T> void rfft_pre_process_x_pad_batch_kernel_wrapper(c10::complex<T>* x_pad, const T* f, int padding, 
+template<typename T> void rfft_pre_process_x_pad_batch_kernel_wrapper(c10::complex<T>* x_pad, const T* f, int padding,
     int nside, int order, const size_t m, const size_t n) {
 
     // f: 3D tensor, m by n by npix
@@ -940,13 +940,13 @@ template<typename T> void rfft_pre_process_x_pad_batch_kernel_wrapper(c10::compl
 }
 
 
-template<typename T> void rfft_post_process_batch_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* ftm, int L, 
+template<typename T> void rfft_post_process_batch_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* ftm, int L,
     int padding, int nside, int order, const size_t m, const size_t n) {
 
     // x_pad: 4D tensor, m by n by nring by padding
     // ftm: 4D tensor, m by n by nring by L
 
-    int npix = 12 * nside * nside; 
+    int npix = 12 * nside * nside;
 
     // Calculate block and grid dimensions
     dim3 blockDim(32, 4, 4); // Example 3D block dimensions
@@ -957,9 +957,9 @@ template<typename T> void rfft_post_process_batch_kernel_wrapper(c10::complex<T>
     rfft_post_process_batch<<<gridDim, blockDim>>>(x_pad, ftm, L, padding, nside, order, m, n);
 }
 
-template<typename T> void rfft_phase_shift_batch_kernel_wrapper(c10::complex<T>* ftm, int L, 
+template<typename T> void rfft_phase_shift_batch_kernel_wrapper(c10::complex<T>* ftm, int L,
     int nside, const size_t m, const size_t n) {
-    
+
     // ftm: 4D tensor, m by n by nring by L
 
     int nring = 4*nside-1;
@@ -989,12 +989,12 @@ template<typename T> void x_y_pad_conv_batch_kernel_wrapper(c10::complex<T>* x_p
 }
 
 
-template<typename T> void irfft_phase_shift_batch_kernel_wrapper(c10::complex<T>* ftm, int L, 
+template<typename T> void irfft_phase_shift_batch_kernel_wrapper(c10::complex<T>* ftm, int L,
     int nside, const size_t m, const size_t n) {
-    
+
     // ftm: 4D tensor, m by n by nring by L
 
-    int nring = 4*nside - 1; 
+    int nring = 4*nside - 1;
 
     dim3 blockDim(32, 4, 4);
     dim3 gridDim((L + blockDim.x - 1) / blockDim.x,
@@ -1004,13 +1004,13 @@ template<typename T> void irfft_phase_shift_batch_kernel_wrapper(c10::complex<T>
     irfft_phase_shift_batch<<<gridDim, blockDim>>>(ftm, L, nside, m, n);
 }
 
-template<typename T> void irfft_pre_process_x_pad_batch_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad, int L, 
+template<typename T> void irfft_pre_process_x_pad_batch_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad, int L,
     int padding, int nside, int order, const size_t m, const size_t n) {
 
     // x_pad: 4D tensor, m by n by nring by padding
     // ftm: 4D tensor, m by n by nring by L
 
-    int npix = 12 * nside * nside; 
+    int npix = 12 * nside * nside;
 
     // Calculate block and grid dimensions
     dim3 blockDim(32, 4, 4); // Example 3D block dimensions
@@ -1022,13 +1022,13 @@ template<typename T> void irfft_pre_process_x_pad_batch_kernel_wrapper(c10::comp
 }
 
 
-template<typename T> void irfft_post_process_batch_kernel_wrapper(c10::complex<T>* x_pad, T* f, int nside, 
+template<typename T> void irfft_post_process_batch_kernel_wrapper(c10::complex<T>* x_pad, T* f, int nside,
     int order, int padding, const size_t m, const size_t n) {
 
     // f: 3D tensor, m by n by npix
     // x_pad: 4D tensor, m by n by nring (4*nside-1) by padding
 
-    int npix = 12 * nside * nside; 
+    int npix = 12 * nside * nside;
 
     // Calculate block and grid dimensions
     dim3 blockDim(32, 4, 4); // Example 3D block dimensions
@@ -1060,9 +1060,9 @@ struct T4 {
 
 
 template <typename T>
-__global__ void rfft_pre_process_x_pad_batch_float4(c10::complex<T>* x_pad, const T* f, const int padding, 
+__global__ void rfft_pre_process_x_pad_batch_float4(c10::complex<T>* x_pad, const T* f, const int padding,
         const int nside, const int order, const size_t n) {
-    
+
     // f: 3D tensor, m by n by npix
     // x_pad: 4D tensor, m by n by nring (4*nside-1) by padding
 
@@ -1104,7 +1104,7 @@ __global__ void rfft_pre_process_x_pad_batch_float4(c10::complex<T>* x_pad, cons
     }
 }
 
-template <typename T> __global__ void rfft_post_process_batch_float4(const c10::complex<T>* x_pad, c10::complex<T>* ftm, 
+template <typename T> __global__ void rfft_post_process_batch_float4(const c10::complex<T>* x_pad, c10::complex<T>* ftm,
     const int L, const int padding, const int nside, const int order, const size_t n){
 
     // x_pad: 4D tensor, m by n by nring by padding
@@ -1151,7 +1151,7 @@ template <typename T> __global__ void rfft_post_process_batch_float4(const c10::
 }
 
 
-template <typename T> __global__ void rfft_phase_shift_batch_float4(c10::complex<T>* ftm, const int L, 
+template <typename T> __global__ void rfft_phase_shift_batch_float4(c10::complex<T>* ftm, const int L,
     const int nside, const size_t n) {
 
     // ftm: 4D tensor m by n by nring by L
@@ -1165,7 +1165,7 @@ template <typename T> __global__ void rfft_phase_shift_batch_float4(c10::complex
     int iL = idx * 4;
 
     if (iL < L && iring < nring && idz < n){
-        
+
         T phi_ring_offset = d_p2phi_ring<T>(iring, 0, nside);
 
         int ftm_idx =  idz * nring * L + iring * L + iL;
@@ -1210,7 +1210,7 @@ template <typename T> __global__ void x_y_pad_conv_batch_float4(c10::complex<T>*
 
 }
 
-template <typename T> __global__ void irfft_phase_shift_batch_float4(c10::complex<T>* ftm, const int L, 
+template <typename T> __global__ void irfft_phase_shift_batch_float4(c10::complex<T>* ftm, const int L,
     const int nside, const size_t n) {
 
     // ftm: 4D tensor m by n by nring by L
@@ -1224,7 +1224,7 @@ template <typename T> __global__ void irfft_phase_shift_batch_float4(c10::comple
     int iL = idx * 4;
 
     if (iL < L && iring < nring && idz < n){
-        
+
         T phi_ring_offset = d_p2phi_ring<T>(iring, 0, nside);
 
         int ftm_idx =  idz * nring * L + iring * L + iL;
@@ -1238,7 +1238,7 @@ template <typename T> __global__ void irfft_phase_shift_batch_float4(c10::comple
 
 
 
-template <typename T> __global__ void irfft_pre_process_x_pad_batch_float4(const c10::complex<T>* ftm, c10::complex<T>* x_pad, 
+template <typename T> __global__ void irfft_pre_process_x_pad_batch_float4(const c10::complex<T>* ftm, c10::complex<T>* x_pad,
     const int L, const int padding, const int nside, const int order, const size_t n) {
 
     // x_pad: 4D tensor, m by n by nring by padding
@@ -1266,7 +1266,7 @@ template <typename T> __global__ void irfft_pre_process_x_pad_batch_float4(const
                 int ftm_idx =  (tmp + iring) * L + iphi;
                 fm = ftm[ftm_idx];
             }
-            else if (iphi > nphi - std::min(nphi/2+1, L)){ 
+            else if (iphi > nphi - std::min(nphi/2+1, L)){
                 int ftm_idx =  (tmp + iring) * L + nphi - iphi;
                 fm = conj(ftm[ftm_idx]);
             }
@@ -1289,7 +1289,7 @@ template <typename T> __global__ void irfft_pre_process_x_pad_batch_float4(const
 }
 
 
-template <typename T> __global__ void irfft_post_process_batch_float4(const c10::complex<T>* x_pad, T* f, const int nside, 
+template <typename T> __global__ void irfft_post_process_batch_float4(const c10::complex<T>* x_pad, T* f, const int nside,
     const int order, const int padding, const size_t n) {
 
     // f: 3D tensor, m by n by npix
@@ -1333,7 +1333,7 @@ template <typename T> __global__ void irfft_post_process_batch_float4(const c10:
 
 
 // Kernel wrapper
-template<typename T> void rfft_pre_process_x_pad_batch_float4_kernel_wrapper(c10::complex<T>* x_pad, const T* f, int padding, 
+template<typename T> void rfft_pre_process_x_pad_batch_float4_kernel_wrapper(c10::complex<T>* x_pad, const T* f, int padding,
     int nside, int order, const size_t n, at::cuda::CUDAStream& stream) {
 
     // f: 3D tensor, m by n by npix
@@ -1349,13 +1349,13 @@ template<typename T> void rfft_pre_process_x_pad_batch_float4_kernel_wrapper(c10
     rfft_pre_process_x_pad_batch_float4<<<gridDim, blockDim, 0, stream.stream()>>>(x_pad, f, padding, nside, order, n);
 }
 
-template<typename T> void rfft_post_process_batch_float4_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* ftm, int L, 
+template<typename T> void rfft_post_process_batch_float4_kernel_wrapper(c10::complex<T>* x_pad, c10::complex<T>* ftm, int L,
     int padding, int nside, int order, const size_t n, at::cuda::CUDAStream& stream) {
 
     // x_pad: 4D tensor, m by n by nring by padding
     // ftm: 4D tensor, m by n by nring by L
 
-    int npix = 12 * nside * nside; 
+    int npix = 12 * nside * nside;
 
     // Calculate block and grid dimensions
     dim3 blockDim(64, 4); // Example 3D block dimensions
@@ -1365,9 +1365,9 @@ template<typename T> void rfft_post_process_batch_float4_kernel_wrapper(c10::com
     rfft_post_process_batch_float4<<<gridDim, blockDim, 0, stream.stream()>>>(x_pad, ftm, L, padding, nside, order, n);
 }
 
-template<typename T> void rfft_phase_shift_batch_float4_kernel_wrapper(c10::complex<T>* ftm, int L, 
+template<typename T> void rfft_phase_shift_batch_float4_kernel_wrapper(c10::complex<T>* ftm, int L,
     int nside, const size_t n, at::cuda::CUDAStream& stream) {
-    
+
     // ftm: 4D tensor, m by n by nring by L
 
     int nring = 4*nside-1;
@@ -1396,9 +1396,9 @@ template<typename T> void x_y_pad_conv_batch_float4_kernel_wrapper(c10::complex<
     x_y_pad_conv_batch_float4<<<gridDim, blockDim, 0, stream.stream()>>>(x_pad, y_pad, padding, nside, m, n);
 }
 
-template<typename T> void irfft_phase_shift_batch_float4_kernel_wrapper(c10::complex<T>* ftm, int L, 
+template<typename T> void irfft_phase_shift_batch_float4_kernel_wrapper(c10::complex<T>* ftm, int L,
     int nside, const size_t n, at::cuda::CUDAStream& stream) {
-    
+
     // ftm: 4D tensor, m by n by nring by L
 
     int nring = 4*nside-1;
@@ -1412,13 +1412,13 @@ template<typename T> void irfft_phase_shift_batch_float4_kernel_wrapper(c10::com
 }
 
 
-template<typename T> void irfft_pre_process_x_pad_batch_float4_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad, int L, 
+template<typename T> void irfft_pre_process_x_pad_batch_float4_kernel_wrapper(c10::complex<T>* ftm, c10::complex<T>* x_pad, int L,
     int padding, int nside, int order, const size_t n, at::cuda::CUDAStream& stream) {
 
     // x_pad: 4D tensor, m by n by nring by padding
     // ftm: 4D tensor, m by n by nring by L
 
-    int npix = 12 * nside * nside; 
+    int npix = 12 * nside * nside;
 
     // Calculate block and grid dimensions
     dim3 blockDim(64, 4); // Example 3D block dimensions
@@ -1429,13 +1429,13 @@ template<typename T> void irfft_pre_process_x_pad_batch_float4_kernel_wrapper(c1
 }
 
 
-template<typename T> void irfft_post_process_batch_float4_kernel_wrapper(c10::complex<T>* x_pad, T* f, int nside, 
+template<typename T> void irfft_post_process_batch_float4_kernel_wrapper(c10::complex<T>* x_pad, T* f, int nside,
     int order, int padding, const size_t n, at::cuda::CUDAStream& stream) {
 
     // f: 3D tensor, m by n by npix
     // x_pad: 4D tensor, m by n by nring (4*nside-1) by padding
 
-    int npix = 12 * nside * nside; 
+    int npix = 12 * nside * nside;
 
     // Calculate block and grid dimensions
     dim3 blockDim(64, 4); // Example 3D block dimensions
@@ -1472,7 +1472,7 @@ void rfft_post_process_batch_dispatch(torch::Tensor x_pad, torch::Tensor ftm, in
     }
 
     DISPATCH_COMPLEX_FLOAT_TYPES(x_pad.scalar_type(), "rfft_post_process_batch", [&] {
-        
+
         auto x_pad_ptr = x_pad.data_ptr<c10::complex<scalar_t>>();
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         rfft_post_process_batch_float4_kernel_wrapper<scalar_t>(x_pad_ptr, ftm_ptr, L, padding, nside, order, n, stream);
@@ -1487,7 +1487,7 @@ void rfft_phase_shift_batch_dispatch(torch::Tensor ftm, int L, int nside, at::cu
     }
 
     DISPATCH_COMPLEX_FLOAT_TYPES(ftm.scalar_type(), "rfft_phase_shift_batch", [&] {
-        
+
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         rfft_phase_shift_batch_float4_kernel_wrapper<scalar_t>(ftm_ptr, L, nside, n, stream);
     });
@@ -1503,7 +1503,7 @@ void x_y_pad_conv_batch_dispatch(torch::Tensor x_pad, torch::Tensor y_pad, int p
     int n = x_pad.size(1);
 
     DISPATCH_COMPLEX_FLOAT_TYPES(x_pad.scalar_type(), "x_y_pad_conv_batch", [&] {
-        
+
         auto x_pad_ptr = x_pad.data_ptr<c10::complex<scalar_t>>();
         auto y_pad_ptr = y_pad.data_ptr<c10::complex<scalar_t>>();
 
@@ -1514,28 +1514,28 @@ void x_y_pad_conv_batch_dispatch(torch::Tensor x_pad, torch::Tensor y_pad, int p
 
 
 void irfft_phase_shift_batch_dispatch(torch::Tensor ftm, int L, int nside, at::cuda::CUDAStream& stream) {
-    
+
     int n = 1;
     for (int i = 0; i < ftm.dim() - 2; ++i) {
         n *= ftm.size(i);
     }
 
     DISPATCH_COMPLEX_FLOAT_TYPES(ftm.scalar_type(), "irfft_phase_shift_batch", [&] {
-        
+
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         irfft_phase_shift_batch_float4_kernel_wrapper<scalar_t>(ftm_ptr, L, nside, n, stream);
     });
 }
 
 void irfft_pre_process_x_pad_batch_dispatch(torch::Tensor ftm, torch::Tensor x_pad, int L, int padding, int nside, int order, at::cuda::CUDAStream& stream) {
-    
+
     int n = 1;
     for (int i = 0; i < ftm.dim() - 2; ++i) {
         n *= ftm.size(i);
     }
 
     DISPATCH_COMPLEX_FLOAT_TYPES(ftm.scalar_type(), "irfft_pre_process_x_pad_batch", [&] {
-        
+
         auto ftm_ptr = ftm.data_ptr<c10::complex<scalar_t>>();
         auto x_pad_ptr = x_pad.data_ptr<c10::complex<scalar_t>>();
 
@@ -1544,7 +1544,7 @@ void irfft_pre_process_x_pad_batch_dispatch(torch::Tensor ftm, torch::Tensor x_p
 }
 
 void irfft_post_process_batch_dispatch(torch::Tensor x_pad, torch::Tensor f, int nside, int order, int padding, at::cuda::CUDAStream& stream) {
-    
+
     int n = 1;
     for (int i = 0; i < f.dim() - 1; ++i) {
         n *= f.size(i);

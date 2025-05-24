@@ -14,7 +14,8 @@
 # limitations under the License.
 
 import torch
-from cuhpx import SHTCUDA, iSHTCUDA
+
+from cuhpx import SHTCUDA
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -34,4 +35,3 @@ for _ in range(10):
     torch.cuda.nvtx.range_push("SHTCUDA batch")
     coeff = sht(signal)
     torch.cuda.nvtx.range_pop()
-    

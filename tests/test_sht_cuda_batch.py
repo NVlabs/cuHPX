@@ -13,9 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
 import torch
-from cuhpx import SHT, iSHT
+
 from cuhpx import SHTCUDA, iSHTCUDA
 
 # Check if CUDA is available
@@ -25,33 +24,32 @@ nside = int(input('nside: '))
 m = int(input('m, the first dim: '))
 n = int(input('n, the second dim: '))
 
-npix = 12* nside**2
-signal = torch.randn(m,n, npix, dtype = torch.float32).to(device)
+npix = 12 * nside**2
+signal = torch.randn(m, n, npix, dtype=torch.float32).to(device)
 
 quad_weights = 'ring'
-lmax = 2*nside+1
+lmax = 2 * nside + 1
 mmax = lmax
 
-sht = SHTCUDA(nside, lmax = lmax, mmax = mmax, quad_weights = quad_weights)
-isht = iSHTCUDA(nside, lmax = lmax, mmax = mmax)
+sht = SHTCUDA(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights)
+isht = iSHTCUDA(nside, lmax=lmax, mmax=mmax)
 
 coeff = sht(signal)
 c = torch.zeros_like(coeff)
 
 for i in range(m):
-	for j in range(n):
-		c[i,j,:] = sht(signal[i,j,:])
+    for j in range(n):
+        c[i, j, :] = sht(signal[i, j, :])
 
 diff = (coeff - c).abs()
-print('diff between batch and single, sht',torch.sqrt(torch.mean(diff.abs()**2)))
+print('diff between batch and single, sht', torch.sqrt(torch.mean(diff.abs() ** 2)))
 
 s1 = isht(coeff)
 s2 = torch.zeros_like(s1)
 
 for i in range(m):
-	for j in range(n):
-		s2[i,j,:] = isht(coeff[i,j,:])
+    for j in range(n):
+        s2[i, j, :] = isht(coeff[i, j, :])
 
 diff = s1 - s2
-print('diff between batch and single, isht',torch.sqrt(torch.mean(diff.abs()**2)))
-
+print('diff between batch and single, isht', torch.sqrt(torch.mean(diff.abs() ** 2)))

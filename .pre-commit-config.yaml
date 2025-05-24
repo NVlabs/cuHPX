@@ -18,7 +18,7 @@ repos:
     rev: 24.1.0
     hooks:
       - id: black
-        language_version: python3.10
+        language_version: python3.12
 
   # Python linter and autofixer (faster alternative to flake8 + isort)
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -34,17 +34,9 @@ repos:
       - id: pyupgrade
         args: [--py310-plus]
 
-  # Type checker
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.1
-    hooks:
-      - id: mypy
-        additional_dependencies: [torch, numpy, types-requests]
-        exclude: src/.*_cuda\.cu
-
   # Basic hygiene: whitespace, end-of-file, etc.
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -60,19 +52,3 @@ repos:
     rev: v0.44.0
     hooks:
       - id: markdownlint
-
-  # Optional: docstring coverage
-  - repo: https://github.com/econchick/interrogate
-    rev: 1.7.0
-    hooks:
-      - id: interrogate
-        args: [--config=pyproject.toml]
-        exclude: ^(tests/|src/.*_cuda\.cu)
-
-  # Check SPDX license headers
-  - repo: https://github.com/antonbabenko/pre-commit-spdx-license
-    rev: v1.4.0
-    hooks:
-      - id: check-spdx-license
-        args: [--license=Apache-2.0]
-        types_or: [python, c, cpp, cuda, markdown]

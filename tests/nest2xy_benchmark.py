@@ -13,20 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-import healpy as hp
-import cuhpx
-import numpy as np
 import time
 
-from earth2grid.healpix import PixelOrder, XY, HEALPIX_PAD_XY
+import healpy as hp
+import numpy as np
+import torch
+from earth2grid.healpix import HEALPIX_PAD_XY, PixelOrder
+
+import cuhpx
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 nside = int(input('nside: '))
 nbatch = int(input('batch size: '))
 
-npix = 12*nside**2
+npix = 12 * nside**2
 
 data = torch.rand(npix, dtype=torch.float)
 data_np = data.numpy()
@@ -41,9 +42,9 @@ for _ in range(15):
     start_cuhpx = torch.cuda.Event(enable_timing=True)
     end_cuhpx = torch.cuda.Event(enable_timing=True)
     start_cuhpx.record()
-    
+
     data = cuhpx.nest2flat(data, "N", True, nside)
-    
+
     end_cuhpx.record()
     torch.cuda.synchronize()  # Ensure timing has finished
     cuhpx_times.append(start_cuhpx.elapsed_time(end_cuhpx))

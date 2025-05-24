@@ -13,18 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+import healpy as hp
 import torch
 import torch.nn as nn
-import healpy as hp
-import cuhpx
+from download import download_file
+
 from cuhpx import iSHTCUDA
 
-import subprocess
-
-subprocess.run(['wget', '-c', 'http://lambda.gsfc.nasa.gov/data/map/dr4/skymaps/7yr/raw/wmap_band_iqumap_r9_7yr_W_v4.fits'])
+download_file('http://lambda.gsfc.nasa.gov/data/map/dr4/skymaps/7yr/raw/wmap_band_iqumap_r9_7yr_W_v4.fits')
 
 nside = int(input("Enter the nside value: "))
-lmax = int(input("Enter the lmax value: ")) #lmax = 2*nside+1
+lmax = int(input("Enter the lmax value: "))  # lmax = 2*nside+1
 mmax = lmax
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -32,6 +32,7 @@ wmap_map_I = hp.read_map("wmap_band_iqumap_r9_7yr_W_v4.fits")
 wmap = hp.ud_grade(wmap_map_I, nside)
 data = torch.from_numpy(wmap)
 signal = data.to(device)
+
 
 class SpectralModel(nn.Module):
     def __init__(self, nside, lmax, mmax):
@@ -42,9 +43,10 @@ class SpectralModel(nn.Module):
     def forward(self):
         return self.isht(self.coeffs)
 
+
 sh_model = SpectralModel(nside, lmax, mmax).to(device)
 
-optimizer = torch.optim.Adam(sh_model.parameters(), lr = 5e-2)
+optimizer = torch.optim.Adam(sh_model.parameters(), lr=5e-2)
 
 losses = []
 
