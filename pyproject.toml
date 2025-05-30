@@ -11,6 +11,12 @@ license = { file="LICENSE.txt" }
 authors = [
     { name = "NVIDIA", email = "asubramaniam@nvidia.com" }
 ]
+dependencies = [
+    "numpy",
+    "torch>=2.0.0",
+    "astropy",
+    "torch_harmonics",
+]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",

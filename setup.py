@@ -41,7 +41,6 @@ setup(
                 'src/data_remapping/hpx_remapping_cuda.cu',
             ],
             extra_compile_args={'nvcc': ['-O2']},
-            extra_link_args=['-lnvToolsExt'],
         ),
         CUDAExtension(
             'cuhpx_fft',
@@ -50,7 +49,6 @@ setup(
                 'src/harmonic_transform/hpx_fft_cuda.cu',
             ],
             extra_compile_args={'nvcc': ['-O2', '-lineinfo']},
-            extra_link_args=['-lnvToolsExt'],
         ),
     ],
     cmdclass={'build_ext': BuildExtension},

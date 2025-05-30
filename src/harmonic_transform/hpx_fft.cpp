@@ -16,7 +16,6 @@
  */
 
 #include "hpx_fft.h"
-#include "nvToolsExt.h"
 #include <cmath>
 
 torch::Tensor healpix_rfft_batch(torch::Tensor f, int L, int nside) {
@@ -28,8 +27,6 @@ torch::Tensor healpix_rfft_batch(torch::Tensor f, int L, int nside) {
     // Retrieve the current CUDA stream
     at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
     at::cuda::CUDAStreamGuard guard(stream);
-
-    nvtxRangeId_t range_id = nvtxRangeStart("healpix_rfft_batch");
 
     int ndims = f.dim();
     TORCH_CHECK(ndims >= 2, "f must have at least 2 dimensions");
@@ -49,8 +46,6 @@ torch::Tensor healpix_rfft_batch(torch::Tensor f, int L, int nside) {
     int order = compute_order(nside);
 
     // Create FFT object and initialize y_pad if not already done
-    nvtxRangeId_t init_id = nvtxRangeStart("Initialize");
-
     static HealpixFFT* fft = nullptr;
     if (!fft || fft->needsReconfiguration(ntheta, n, padding, dtype, device)) {
 
@@ -62,10 +57,6 @@ torch::Tensor healpix_rfft_batch(torch::Tensor f, int L, int nside) {
     }
     fft->initializeYpad(nside);
 
-    nvtxRangeEnd(init_id);
-
-    nvtxRangeId_t allocate_id = nvtxRangeStart("Allocate tensor");
-
     auto ftm_size = batch_dims;
     ftm_size.push_back(ntheta);
     ftm_size.push_back(L);
@@ -76,26 +67,18 @@ torch::Tensor healpix_rfft_batch(torch::Tensor f, int L, int nside) {
 
     auto ftm = torch::zeros(ftm_size, torch::dtype(dtype).device(device));
     auto x_pad = torch::zeros(x_pad_size, torch::dtype(dtype).device(device));
-    nvtxRangeEnd(allocate_id);
 
-    nvtxRangeId_t pre_process_id = nvtxRangeStart("RFFT Pre-processing");
     rfft_pre_process_x_pad_batch_dispatch(x_pad, f, padding, nside, order, stream);
-    nvtxRangeEnd(pre_process_id);
 
-    nvtxRangeId_t forward_fft_id = nvtxRangeStart("FFT+Conv+iFFT");
     fft->execute_forward(x_pad);
 
     x_pad = x_pad * fft->getYpad();
 
     fft->execute_inverse(x_pad);
-    nvtxRangeEnd(forward_fft_id);
 
-    nvtxRangeId_t post_process_id = nvtxRangeStart("RFFT Post-processing + Phase shift");
     rfft_post_process_batch_dispatch(x_pad, ftm, L, padding, nside, order, stream);
     rfft_phase_shift_batch_dispatch(ftm, L, nside, stream);
-    nvtxRangeEnd(post_process_id);
 
-    nvtxRangeEnd(range_id);
 
     return ftm;
 }
@@ -105,8 +88,6 @@ torch::Tensor healpix_irfft_batch(torch::Tensor ftm, int L, int nside) {
     // f: 3D tensor, m by n by npix
     // x_pad: 4D tensor, m by n by nring by padding
     // ftm: 4D tensor, m by n by nring by L
-
-    nvtxRangeId_t range_id = nvtxRangeStart("healpix_irfft_batch");
 
     int ndims = ftm.dim();
     TORCH_CHECK(ftm.dim() >= 3, "ftm must be a 3D tensor");
@@ -130,8 +111,6 @@ torch::Tensor healpix_irfft_batch(torch::Tensor ftm, int L, int nside) {
     auto dtype = ftm.scalar_type() == torch::kComplexDouble ? torch::kComplexDouble : torch::kComplexFloat;
     auto ftype = dtype == torch::kComplexDouble ? torch::kDouble : torch::kFloat;
 
-    nvtxRangeId_t allocate_id = nvtxRangeStart("Allocate tensor");
-
     auto f_size = batch_dims;
     f_size.push_back(12 * nside * nside);
 
@@ -141,11 +120,8 @@ torch::Tensor healpix_irfft_batch(torch::Tensor ftm, int L, int nside) {
 
     auto f = torch::zeros(f_size, torch::dtype(ftype).device(device));
     auto x_pad = torch::zeros(x_pad_size, torch::dtype(dtype).device(device));
-    nvtxRangeEnd(allocate_id);
 
     // Instantiate FFT object
-    nvtxRangeId_t init_id = nvtxRangeStart("Initialize");
-
     static HealpixIFFT* ifft = nullptr;
     if (!ifft || ifft->needsReconfiguration(ntheta, n, padding, dtype, device)) {
         delete ifft; // Properly deallocate existing object
@@ -156,28 +132,17 @@ torch::Tensor healpix_irfft_batch(torch::Tensor ftm, int L, int nside) {
     }
     ifft->initializeYpad(nside);
 
-    nvtxRangeEnd(init_id);
-
-
-    nvtxRangeId_t pre_process_id = nvtxRangeStart("iRFFT Phase shift + Pre-processing");
     irfft_phase_shift_batch_dispatch(ftm, L, nside, stream);
     irfft_pre_process_x_pad_batch_dispatch(ftm, x_pad, L, padding, nside, order, stream);
-    nvtxRangeEnd(pre_process_id);
 
-    nvtxRangeId_t forward_fft_id = nvtxRangeStart("FFT+Conv+iFFT");
     ifft->execute_forward(x_pad);
 
     x_pad = x_pad * ifft->getYpad();
     //x_y_pad_conv_batch_dispatch(x_pad, ifft->getYpad(), padding, nside);
 
     ifft->execute_inverse(x_pad);
-    nvtxRangeEnd(forward_fft_id);
 
-    nvtxRangeId_t post_process_id = nvtxRangeStart("RFFT Post-processing + Phase shift");
     irfft_post_process_batch_dispatch(x_pad, f, nside, order, padding, stream);
-    nvtxRangeEnd(post_process_id);
-
-    nvtxRangeEnd(range_id);
 
     return f;
 

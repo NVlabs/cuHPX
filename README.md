@@ -11,8 +11,7 @@ To setup the library, run
 ```bash
 git clone https://gitlab-master.nvidia.com/Devtech-Compute/cuhpx.git
 cd cuhpx
-python3 setup.py build
-pip install .
+pip install --no-build-isolation .
 ```
 
 Example with cuhpx for real spherical harmonic transformations and its inverse
