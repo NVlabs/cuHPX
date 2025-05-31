@@ -1,5 +1,10 @@
 # cuHPX - GPU-Accelerated utilities for data on HEALPix grids
 
+[![img](https://github.com/NVlabs/cuHPX/actions/workflows/ci.yaml/badge.svg)](https://github.com/NVlabs/cuHPX/actions/workflows/ci.yaml)
+[![license][cuhpx_license_img]][cuhpx_license_url]
+[![format][cuhpx_format_img]][cuhpx_format_url]
+[![ruff][cuhpx_ruff_img]][cuhpx_ruff_url]
+
 cuHPX is a library for performing transformations and analysis on HEALPix using
 the GPU. Currently, it supports data shuffling between the RING/NESTED layout
 and the flat index layout used in the earth-2 grid. Other features include
@@ -121,3 +126,13 @@ python3 test/harmonic_transform_test.py
 python3 test/differentiability_test.py
 python3 test/regridding_test.py
 ```
+
+<!-- Badge links -->
+
+[cuhpx_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
+[cuhpx_format_img]: https://img.shields.io/badge/Code%20Style-Black-black?style=flat-square
+[cuhpx_ruff_img]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square
+
+[cuhpx_license_url]: ./LICENSE
+[cuhpx_format_url]: https://github.com/psf/black
+[cuhpx_ruff_url]: https://github.com/astral-sh/ruff
