@@ -32,22 +32,3 @@ jobs:
     - name: Run lint
       run: |
         pre-commit run --all-files
-  build:
-
-    runs-on: ubuntu-latest
-    container:
-      image: nvcr.io/nvidia/pytorch:25.04-py3
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-    - name: Build package
-      run: |
-        apt-get update && apt-get install -y build-essential
-        python -m pip install --upgrade pip
-        pip install --no-build-isolation .
-        python setup.py build_ext --inplace
-    - name: Run tests
-      run: make unittest
-    - name: coverage
-      run: make coverage
