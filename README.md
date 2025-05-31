@@ -1,6 +1,6 @@
 # cuHPX - GPU-Accelerated utilities for data on HEALPix grids
 
-[![img](https://github.com/NVlabs/cuHPX/actions/workflows/ci.yaml/badge.svg?branch=ci)](https://github.com/NVlabs/cuHPX/actions/workflows/ci.yaml)
+[![img](https://github.com/NVlabs/cuHPX/actions/workflows/ci.yaml/badge.svg)](https://github.com/NVlabs/cuHPX/actions/workflows/ci.yaml)
 [![license][cuhpx_license_img]][cuhpx_license_url]
 [![format][cuhpx_format_img]][cuhpx_format_url]
 [![ruff][cuhpx_ruff_img]][cuhpx_ruff_url]
