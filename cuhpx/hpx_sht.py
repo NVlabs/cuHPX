@@ -642,7 +642,7 @@ class iSHTFunction(Function):
 
 
 class SHTCUDA(nn.Module):
-    def __init__(self, nside, lmax=None, mmax=None, quad_weights="ring", norm = "ortho", csphase=True):
+    def __init__(self, nside, lmax=None, mmax=None, quad_weights="ring", norm="ortho", csphase=True):
 
         super().__init__()
         self.nside = nside
@@ -693,7 +693,7 @@ class SHTCUDA(nn.Module):
 
 class iSHTCUDA(nn.Module):
 
-    def __init__(self, nside, lmax=None, mmax=None, quad_weights="ring", norm = "ortho", csphase=True):
+    def __init__(self, nside, lmax=None, mmax=None, quad_weights="ring", norm="ortho", csphase=True):
 
         super().__init__()
         self.nside = nside
