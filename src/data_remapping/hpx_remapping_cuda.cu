@@ -133,15 +133,15 @@ __device__ inline void correct_xy_orient(int& ix, int& iy, const int order, cons
     iy = new_iy;
 }
 
-template <typename I, typename T>
+template <typename I, typename T> 
 __global__ void rearrange_data_kernel_naive(const T* d_data_in, T* d_data_out, const I* d_pix_array, const size_t num_elements){
-
+    
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (tid < num_elements){
         I pix = d_pix_array[tid];
         d_data_out[pix] = d_data_in[tid];
-
+        
     }
 }
 
@@ -157,7 +157,7 @@ template <typename I>
 }
 
 
-template <typename I>
+template <typename I> 
 __global__ void ring2xyf_kernel(const I* pix_array, int* ix_array, int* iy_array, int* face_num_array,
     const int order, const I nside, const size_t num_elements){
 
@@ -192,10 +192,10 @@ __global__ void ring2xyf_kernel(const I* pix_array, int* ix_array, int* iy_array
             I irm = 2*nside + 1 - tmp;
             I ifm = iphi - (ire >> 1) + nside - 1;
             I ifp = iphi - (irm >> 1) + nside - 1;
-
+ 
             ifm >>= order;
             ifp >>= order;
-
+     
             face_num = (ifp == ifm) ? (ifp | 4) : ((ifp < ifm) ? ifp : (ifm + 8));
         } else { // South Polar Cap
             I ip = npix - pix;
@@ -224,8 +224,8 @@ __global__ void ring2xyf_kernel(const I* pix_array, int* ix_array, int* iy_array
 }
 
 
-template<typename I>
-__global__ void xyf2ring_kernel(I* pix_array, const int* ix_array, const int* iy_array, const int* face_num_array,
+template<typename I> 
+__global__ void xyf2ring_kernel(I* pix_array, const int* ix_array, const int* iy_array, const int* face_num_array, 
         const int order, const I nside, const size_t num_elements) {
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -281,7 +281,7 @@ __global__ void xyf2ring_kernel(I* pix_array, const int* ix_array, const int* iy
     }
 }
 
-template <typename I>
+template <typename I> 
 __global__ void nest2xyf_kernel(const I* pix_array, int* ix_array, int* iy_array, int* face_num_array,
     const int order, const I nside, const size_t num_elements) {
 
@@ -303,7 +303,7 @@ __global__ void nest2xyf_kernel(const I* pix_array, int* ix_array, int* iy_array
     }
 }
 
-template <typename I>
+template <typename I> 
 __global__ void xyf2nest_kernel(I* pix_array, const int* ix_array, const int* iy_array, const int* face_num_array,
     const int order, const I nside, const size_t num_elements){
 
@@ -601,7 +601,7 @@ void ring2nest_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data_in_
     ring2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
     xyf2nest_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
     rearrange_data_kernel_naive <<<num_blocks, block_size>>>(data_in_ring.data_ptr<T>(), data_in_nest.data_ptr<T>(), d_pix_array, num_elements);
-
+    
     //cudaDeviceSynchronize();
 
     cudaFree(d_pix_array);
@@ -633,172 +633,8 @@ void nest2ring_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_
     nest2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
     xyf2ring_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
     rearrange_data_kernel_naive <<<num_blocks, block_size>>>(data_in_nest.data_ptr<T>(), data_in_ring.data_ptr<T>(), d_pix_array, num_elements);
-
+    
     //cudaDeviceSynchronize();
-
-    cudaFree(d_pix_array);
-    cudaFree(d_ix_array);
-    cudaFree(d_iy_array);
-    cudaFree(d_face_num_array);
-}
-
-
-template <typename T>
-void benchmark_nest_ring_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_ring, const int nside, const size_t num_elements) {
-
-    int block_size = 1024;
-    int num_blocks = (num_elements + block_size - 1) / block_size;
-
-    int order = compute_order(nside);
-
-    int* d_pix_array;
-    int* d_ix_array;
-    int* d_iy_array;
-    int* d_face_num_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_ix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_iy_array, num_elements * sizeof(int));
-    cudaMalloc(&d_face_num_array, num_elements * sizeof(int));
-
-
-    float total_elapsed_time_r2n = 0.0f;
-    float total_elapsed_time_n2r = 0.0f;
-
-    float total_elapsed_time_n2xy = 0.0f;
-    float total_elapsed_time_xy2n = 0.0f;
-
-    float elapsed_time;
-
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-
-    int num_runs = 3;
-    int k = 2;
-    bool flip = false;
-
-    // warm-up run
-    for (int i = 0; i < num_runs; ++i)
-    {
-        // nest 2 ring
-        initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-        nest2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        xyf2ring_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        rearrange_data_kernel_naive <<<num_blocks, block_size>>>(data_in_nest.data_ptr<T>(), data_in_ring.data_ptr<T>(), d_pix_array, num_elements);
-
-        // ring 2 nest
-        initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-        ring2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        xyf2nest_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        rearrange_data_kernel_naive <<<num_blocks, block_size>>>(data_in_ring.data_ptr<T>(), data_in_nest.data_ptr<T>(), d_pix_array, num_elements);
-
-        // nest2xy
-        initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-        nest2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        xyf2flat_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-        rearrange_data_kernel_naive <<<num_blocks, block_size>>>(data_in_nest.data_ptr<T>(), data_in_ring.data_ptr<T>(), d_pix_array, num_elements);
-
-        // xy2nest
-        initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-        flat2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-        xyf2nest_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        rearrange_data_kernel_naive <<<num_blocks, block_size>>>(data_in_ring.data_ptr<T>(), data_in_nest.data_ptr<T>(), d_pix_array, num_elements);
-    }
-
-    cudaDeviceSynchronize();
-
-    num_runs = 10;
-
-
-    for (int i = 0; i < num_runs; ++i)
-    {
-
-        // N2R
-        cudaEventRecord(start, stream);
-
-        initialize_pix_array<<<num_blocks, block_size, 0, stream>>>(d_pix_array, num_elements);
-        nest2xyf_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        xyf2ring_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        rearrange_data_kernel_naive <<<num_blocks, block_size, 0, stream>>>(data_in_nest.data_ptr<T>(), data_in_ring.data_ptr<T>(), d_pix_array, num_elements);
-
-        cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
-
-        elapsed_time = 0.0f;
-        cudaEventElapsedTime(&elapsed_time, start, stop);
-        total_elapsed_time_n2r += elapsed_time;
-
-        // R2N
-
-        cudaEventRecord(start, stream);
-
-        initialize_pix_array<<<num_blocks, block_size, 0, stream>>>(d_pix_array, num_elements);
-        ring2xyf_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        xyf2nest_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        rearrange_data_kernel_naive <<<num_blocks, block_size, 0, stream>>>(data_in_ring.data_ptr<T>(), data_in_nest.data_ptr<T>(), d_pix_array, num_elements);
-
-        cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
-
-        elapsed_time = 0.0f;
-        cudaEventElapsedTime(&elapsed_time, start, stop);
-        total_elapsed_time_r2n += elapsed_time;
-
-        // nest2xy
-        cudaEventRecord(start, stream);
-
-        initialize_pix_array<<<num_blocks, block_size, 0, stream>>>(d_pix_array, num_elements);
-        nest2xyf_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        xyf2flat_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-        rearrange_data_kernel_naive <<<num_blocks, block_size, 0, stream>>>(data_in_nest.data_ptr<T>(), data_in_ring.data_ptr<T>(), d_pix_array, num_elements);
-
-        cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
-
-        elapsed_time = 0.0f;
-        cudaEventElapsedTime(&elapsed_time, start, stop);
-        total_elapsed_time_n2xy += elapsed_time;
-
-        // xy2nest
-        cudaEventRecord(start, stream);
-
-        initialize_pix_array<<<num_blocks, block_size, 0, stream>>>(d_pix_array, num_elements);
-        flat2xyf_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-        xyf2nest_kernel<<<num_blocks, block_size, 0, stream>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-        rearrange_data_kernel_naive <<<num_blocks, block_size, 0, stream>>>(data_in_ring.data_ptr<T>(), data_in_nest.data_ptr<T>(), d_pix_array, num_elements);
-
-        cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);
-
-        elapsed_time = 0.0f;
-        cudaEventElapsedTime(&elapsed_time, start, stop);
-        total_elapsed_time_xy2n += elapsed_time;
-
-    }
-
-    float average_elapsed_time_n2r = total_elapsed_time_n2r / num_runs;
-    float average_elapsed_time_r2n = total_elapsed_time_r2n / num_runs;
-    float average_elapsed_time_n2xy = total_elapsed_time_n2xy / num_runs;
-    float average_elapsed_time_xy2n = total_elapsed_time_xy2n / num_runs;
-
-
-    std::cout << "Average elapsed time used by CUDA data ring2nest kernel over " << num_runs << " runs: " << average_elapsed_time_r2n << "ms" << std::endl;
-    std::cout << "Average elapsed time used by CUDA data nest2ring kernel over " << num_runs << " runs: " << average_elapsed_time_n2r << "ms" << std::endl;
-
-    std::cout << "Average elapsed time used by CUDA data nest2XY kernel over " << num_runs << " runs: " << average_elapsed_time_n2xy << "ms" << std::endl;
-    std::cout << "Average elapsed time used by CUDA data XY2nest kernel over " << num_runs << " runs: " << average_elapsed_time_xy2n << "ms" << std::endl;
-
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-    cudaStreamDestroy(stream);
-
-    cudaDeviceSynchronize();
-
 
     cudaFree(d_pix_array);
     cudaFree(d_ix_array);
@@ -825,11 +661,11 @@ void nest2ring_dispatch(torch::Tensor data_in_nest, torch::Tensor data_in_ring, 
 
 void nest2xy_dispatch(torch::Tensor data_in_nest, torch::Tensor data_in_xy, const int src_origin, const bool src_clockwise,
                       const int dest_origin, const bool dest_clockwise, const int nside, const size_t num_elements) {
-
+    
     AT_DISPATCH_ALL_TYPES(data_in_nest.scalar_type(), "nest2xy", ([&] {
         nest2xy_kernel_wrapper<scalar_t>(data_in_nest, data_in_xy, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
 
 void xy2nest_dispatch(torch::Tensor data_in_xy, torch::Tensor data_in_nest, const int src_origin, const bool src_clockwise,
@@ -847,7 +683,7 @@ void ring2xy_dispatch(torch::Tensor data_in_ring, torch::Tensor data_in_xy, cons
     AT_DISPATCH_ALL_TYPES(data_in_ring.scalar_type(), "ring2xy", ([&] {
         ring2xy_kernel_wrapper<scalar_t>(data_in_ring, data_in_xy, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
 
 void xy2ring_dispatch(torch::Tensor data_in_xy, torch::Tensor data_in_ring, const int src_origin, const bool src_clockwise,
@@ -856,7 +692,7 @@ void xy2ring_dispatch(torch::Tensor data_in_xy, torch::Tensor data_in_ring, cons
     AT_DISPATCH_ALL_TYPES(data_in_xy.scalar_type(), "xy2ring", ([&] {
         xy2ring_kernel_wrapper<scalar_t>(data_in_xy, data_in_ring, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
 
 void xy2xy_dispatch(torch::Tensor data_xy_in, torch::Tensor data_xy_out, const int src_origin, const bool src_clockwise,
@@ -865,61 +701,51 @@ void xy2xy_dispatch(torch::Tensor data_xy_in, torch::Tensor data_xy_out, const i
     AT_DISPATCH_ALL_TYPES(data_xy_in.scalar_type(), "xy2xy", ([&] {
         xy2xy_kernel_wrapper<scalar_t>(data_xy_in, data_xy_out, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
-
-void benchmark_nest_ring_dispatch(torch::Tensor data_in_nest, torch::Tensor data_in_ring, const int nside, const size_t num_elements) {
-
-    AT_DISPATCH_ALL_TYPES(data_in_nest.scalar_type(), "benchmark_nest_ring", ([&] {
-        benchmark_nest_ring_kernel_wrapper<scalar_t>(data_in_nest, data_in_ring, nside, num_elements);
-    }));
-
-}
-
-
 
 
 template <typename I, typename T>
-__global__ void rearrange_data_kernel_3d_batch(const T* d_data_in, T* d_data_out, const I* d_pix_array,
+__global__ void rearrange_data_kernel_3d_batch(const T* d_data_in, T* d_data_out, const I* d_pix_array, 
         const size_t m, const size_t n, const size_t num_elements) {
-
+    
     // d_data_in: m by n by num_elements 3D matrix
 
     int idz = blockIdx.z * blockDim.z + threadIdx.z;
     int idy = blockIdx.y * blockDim.y + threadIdx.y;
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
+    
     int tid = idz * n * num_elements + idy * num_elements + idx;
-
+    
     if (idz < m && idy < n && idx < num_elements) {
 
-        I pix = d_pix_array[idx];
+        I pix = d_pix_array[idx];             
 
         d_data_out[tid-idx + pix] = d_data_in[tid];
     }
 }
 
 template <typename I, typename T>
-__global__ void rearrange_data_kernel_batch(const T* d_data_in, T* d_data_out, const I* d_pix_array,
+__global__ void rearrange_data_kernel_batch(const T* d_data_in, T* d_data_out, const I* d_pix_array, 
         const size_t n, const size_t num_elements) {
 
     unsigned int idy = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
+    
     unsigned int tid = idy * num_elements + idx;
-
+    
     if (idy < n && idx < num_elements) {
 
-        I pix = d_pix_array[idx];
+        I pix = d_pix_array[idx];             
 
         d_data_out[tid-idx + pix] = d_data_in[tid];
     }
 }
 
 template <typename T>
-void xy2xy_batch_kernel_wrapper(torch::Tensor data_xy_in, torch::Tensor data_xy_out,
+void xy2xy_batch_kernel_wrapper(torch::Tensor data_xy_in, torch::Tensor data_xy_out, 
                           const int src_origin, const bool src_clockwise,
-                          const int dest_origin, const bool dest_clockwise,
+                          const int dest_origin, const bool dest_clockwise, 
                           const int nside, const size_t num_elements) {
 
     // Check tensor dimensions and sizes
@@ -965,9 +791,9 @@ void xy2xy_batch_kernel_wrapper(torch::Tensor data_xy_in, torch::Tensor data_xy_
 
 
 template <typename T>
-void nest2xy_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_xy,
+void nest2xy_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_xy, 
                             const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
+                            const int dest_origin, const bool dest_clockwise, 
                             const int nside, const size_t num_elements) {
 
     // Check tensor dimensions and sizes
@@ -1022,9 +848,9 @@ void nest2xy_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data
 }
 
 template <typename T>
-void xy2nest_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_in_nest,
+void xy2nest_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_in_nest, 
                             const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
+                            const int dest_origin, const bool dest_clockwise, 
                             const int nside, const size_t num_elements) {
 
     // Check tensor dimensions and sizes
@@ -1079,9 +905,9 @@ void xy2nest_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_i
 }
 
 template <typename T>
-void ring2xy_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data_in_xy,
+void ring2xy_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data_in_xy, 
                             const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
+                            const int dest_origin, const bool dest_clockwise, 
                             const int nside, const size_t num_elements) {
 
     // Check tensor dimensions and sizes
@@ -1137,9 +963,9 @@ void ring2xy_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data
 
 
 template <typename T>
-void xy2ring_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_in_ring,
+void xy2ring_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_in_ring, 
                             const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
+                            const int dest_origin, const bool dest_clockwise, 
                             const int nside, const size_t num_elements) {
 
     // Check tensor dimensions and sizes
@@ -1195,7 +1021,7 @@ void xy2ring_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_i
 
 
 template <typename T>
-void ring2nest_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data_in_nest,
+void ring2nest_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data_in_nest, 
                               const int nside, const size_t num_elements) {
 
     // Check tensor dimensions and sizes
@@ -1244,7 +1070,7 @@ void ring2nest_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor da
 }
 
 template <typename T>
-void nest2ring_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_ring,
+void nest2ring_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_ring, 
                               const int nside, const size_t num_elements) {
 
     // Check tensor dimensions and sizes
@@ -1292,372 +1118,6 @@ void nest2ring_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor da
     cudaFree(d_face_num_array);
 }
 
-/*
-template <typename T>
-void xy2xy_batch_kernel_wrapper(torch::Tensor data_xy_in, torch::Tensor data_xy_out,
-                          const int src_origin, const bool src_clockwise,
-                          const int dest_origin, const bool dest_clockwise,
-                          const int nside, const size_t num_elements) {
-
-    // Check tensor dimensions and sizes
-    TORCH_CHECK(data_xy_in.dim() == 3, "data_xy_in must be a 3D tensor");
-    TORCH_CHECK(data_xy_out.dim() == 3, "data_xy_out must be a 3D tensor");
-
-    int m = data_xy_in.size(0); // First dimension
-    int n = data_xy_in.size(1); // Second dimension
-
-    int order = compute_order(nside);
-
-    int block_size = 256;
-    int num_blocks = (num_elements + block_size - 1)/ block_size;
-
-    // Calculate block and grid dimensions
-    dim3 block_dim(32, 4, 4); // Example 3D block dimensions
-    dim3 grid_dim((num_elements + block_dim.x - 1) / block_dim.x,
-                  (n + block_dim.y - 1) / block_dim.y,
-                  (m + block_dim.z - 1) / block_dim.z);
-
-    // Allocate device memory
-    int* d_pix_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-
-    // Compute rotation parameters
-    bool flip = src_clockwise != dest_clockwise;
-    int rotations = dest_origin - src_origin;
-    int k = (dest_clockwise ? -rotations : rotations) & 3;
-    if (k < 0) { k += 4; }
-
-    // Launch kernels
-    initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-    flat2flat_kernel<<<num_blocks, block_size>>>(d_pix_array, order, nside, num_elements, flip, k);
-
-    // Adjust kernel launch for 3D data
-    rearrange_data_kernel_3d_batch<<<grid_dim, block_dim>>>(data_xy_in.data_ptr<T>(), data_xy_out.data_ptr<T>(), d_pix_array, m, n, num_elements);
-
-    // Free device memory
-    cudaFree(d_pix_array);
-}
-
-
-template <typename T>
-void nest2xy_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_xy,
-                            const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
-                            const int nside, const size_t num_elements) {
-
-    // Check tensor dimensions and sizes
-    TORCH_CHECK(data_in_nest.dim() == 3, "data_in_nest should be a 3D tensor");
-    TORCH_CHECK(data_in_xy.dim() == 3, "data_in_xy should be a 3D tensor");
-
-    int m = data_in_nest.size(0); // First dimension
-    int n = data_in_nest.size(1); // Second dimension
-
-    int order = compute_order(nside);
-
-    // Calculate block and grid dimensions
-    dim3 block_dim(32, 4, 4); // Example 3D block dimensions
-    dim3 grid_dim((num_elements + block_dim.x - 1) / block_dim.x,
-                  (n + block_dim.y - 1) / block_dim.y,
-                  (m + block_dim.z - 1) / block_dim.z);
-
-    int block_size = 256;
-    int num_blocks = (num_elements + block_size - 1)/ block_size;
-
-    // Allocate device memory
-    int* d_pix_array;
-    int* d_ix_array;
-    int* d_iy_array;
-    int* d_face_num_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_ix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_iy_array, num_elements * sizeof(int));
-    cudaMalloc(&d_face_num_array, num_elements * sizeof(int));
-
-    // Compute rotation parameters
-    bool flip = src_clockwise != dest_clockwise;
-    int rotations = dest_origin - src_origin;
-    int k = (dest_clockwise ? -rotations : rotations) & 3;
-    if (k < 0) { k += 4; }
-
-    // Launch kernels
-    initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-    nest2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-    xyf2flat_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-
-    // Adjust kernel launch for 3D data
-    rearrange_data_kernel_3d_batch<<<grid_dim, block_dim>>>(data_in_nest.data_ptr<T>(), data_in_xy.data_ptr<T>(), d_pix_array, m, n, num_elements);
-
-    // Free device memory
-    cudaFree(d_pix_array);
-    cudaFree(d_ix_array);
-    cudaFree(d_iy_array);
-    cudaFree(d_face_num_array);
-}
-
-template <typename T>
-void xy2nest_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_in_nest,
-                            const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
-                            const int nside, const size_t num_elements) {
-
-    // Check tensor dimensions and sizes
-    TORCH_CHECK(data_in_xy.dim() == 3, "data_in_xy must be a 3D tensor");
-    TORCH_CHECK(data_in_nest.dim() == 3, "data_in_nest must be a 3D tensor");
-
-    int m = data_in_xy.size(0); // First dimension
-    int n = data_in_xy.size(1); // Second dimension
-
-    int order = compute_order(nside);
-
-    int block_size = 256;
-    int num_blocks = (num_elements + block_size - 1)/ block_size;
-
-    // Calculate block and grid dimensions
-    dim3 block_dim(32, 4, 4); // Example 3D block dimensions
-    dim3 grid_dim((num_elements + block_dim.x - 1) / block_dim.x,
-                  (n + block_dim.y - 1) / block_dim.y,
-                  (m + block_dim.z - 1) / block_dim.z);
-
-    // Allocate device memory
-    int* d_pix_array;
-    int* d_ix_array;
-    int* d_iy_array;
-    int* d_face_num_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_ix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_iy_array, num_elements * sizeof(int));
-    cudaMalloc(&d_face_num_array, num_elements * sizeof(int));
-
-    // Compute rotation parameters
-    bool flip = src_clockwise != dest_clockwise;
-    int rotations = dest_origin - src_origin;
-    int k = (dest_clockwise ? -rotations : rotations) & 3;
-    if (k < 0) { k += 4; }
-
-    // Launch kernels
-    initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-    flat2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-    xyf2nest_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-
-    // Adjust kernel launch for 3D data
-    rearrange_data_kernel_3d_batch<<<grid_dim, block_dim>>>(data_in_xy.data_ptr<T>(), data_in_nest.data_ptr<T>(), d_pix_array, m, n, num_elements);
-
-    // Free device memory
-    cudaFree(d_pix_array);
-    cudaFree(d_ix_array);
-    cudaFree(d_iy_array);
-    cudaFree(d_face_num_array);
-}
-
-template <typename T>
-void ring2xy_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data_in_xy,
-                            const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
-                            const int nside, const size_t num_elements) {
-
-    // Check tensor dimensions and sizes
-    TORCH_CHECK(data_in_ring.dim() == 3, "data_in_ring must be a 3D tensor");
-    TORCH_CHECK(data_in_xy.dim() == 3, "data_in_xy must be a 3D tensor");
-
-    int m = data_in_ring.size(0); // First dimension
-    int n = data_in_ring.size(1); // Second dimension
-    int order = compute_order(nside);
-
-    int block_size = 256;
-    int num_blocks = (num_elements + block_size - 1)/ block_size;
-
-    // Calculate block and grid dimensions
-    dim3 block_dim(32, 4, 4); // Example 3D block dimensions
-    dim3 grid_dim((num_elements + block_dim.x - 1) / block_dim.x,
-                  (n + block_dim.y - 1) / block_dim.y,
-                  (m + block_dim.z - 1) / block_dim.z);
-
-    // Allocate device memory
-    int* d_pix_array;
-    int* d_ix_array;
-    int* d_iy_array;
-    int* d_face_num_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_ix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_iy_array, num_elements * sizeof(int));
-    cudaMalloc(&d_face_num_array, num_elements * sizeof(int));
-
-    // Compute rotation parameters
-    bool flip = src_clockwise != dest_clockwise;
-    int rotations = dest_origin - src_origin;
-    int k = (dest_clockwise ? -rotations : rotations) & 3;
-    if (k < 0) { k += 4; }
-
-    // Launch kernels
-    initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-    ring2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-    xyf2flat_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-
-    // Adjust kernel launch for 3D data
-    rearrange_data_kernel_3d_batch<<<grid_dim, block_dim>>>(data_in_ring.data_ptr<T>(), data_in_xy.data_ptr<T>(), d_pix_array, m, n, num_elements);
-
-    // Free device memory
-    cudaFree(d_pix_array);
-    cudaFree(d_ix_array);
-    cudaFree(d_iy_array);
-    cudaFree(d_face_num_array);
-}
-
-
-template <typename T>
-void xy2ring_batch_kernel_wrapper(torch::Tensor data_in_xy, torch::Tensor data_in_ring,
-                            const int src_origin, const bool src_clockwise,
-                            const int dest_origin, const bool dest_clockwise,
-                            const int nside, const size_t num_elements) {
-
-    // Check tensor dimensions and sizes
-    TORCH_CHECK(data_in_xy.dim() == 3, "data_in_xy must be a 3D tensor");
-    TORCH_CHECK(data_in_ring.dim() == 3, "data_in_ring must be a 3D tensor");
-
-    int m = data_in_xy.size(0); // First dimension
-    int n = data_in_xy.size(1); // Second dimension
-    int order = compute_order(nside);
-
-    int block_size = 256;
-    int num_blocks = (num_elements + block_size - 1)/ block_size;
-
-    // Calculate block and grid dimensions
-    dim3 block_dim(32, 4, 4); // Example 3D block dimensions
-    dim3 grid_dim((num_elements + block_dim.x - 1) / block_dim.x,
-                  (n + block_dim.y - 1) / block_dim.y,
-                  (m + block_dim.z - 1) / block_dim.z);
-
-    // Allocate device memory
-    int* d_pix_array;
-    int* d_ix_array;
-    int* d_iy_array;
-    int* d_face_num_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_ix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_iy_array, num_elements * sizeof(int));
-    cudaMalloc(&d_face_num_array, num_elements * sizeof(int));
-
-    // Compute rotation parameters
-    bool flip = src_clockwise != dest_clockwise;
-    int rotations = dest_origin - src_origin;
-    int k = (dest_clockwise ? -rotations : rotations) & 3;
-    if (k < 0) { k += 4; }
-
-    // Launch kernels
-    initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-    flat2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements, flip, k);
-    xyf2ring_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-
-    // Adjust kernel launch for 3D data
-    rearrange_data_kernel_3d_batch<<<grid_dim, block_dim>>>(data_in_xy.data_ptr<T>(), data_in_ring.data_ptr<T>(), d_pix_array, m, n, num_elements);
-
-    // Free device memory
-    cudaFree(d_pix_array);
-    cudaFree(d_ix_array);
-    cudaFree(d_iy_array);
-    cudaFree(d_face_num_array);
-}
-
-
-template <typename T>
-void ring2nest_batch_kernel_wrapper(torch::Tensor data_in_ring, torch::Tensor data_in_nest,
-                              const int nside, const size_t num_elements) {
-
-    // Check tensor dimensions and sizes
-    TORCH_CHECK(data_in_ring.dim() == 3, "data_in_ring must be a 3D tensor");
-    TORCH_CHECK(data_in_nest.dim() == 3, "data_in_nest must be a 3D tensor");
-
-    int m = data_in_ring.size(0); // First dimension
-    int n = data_in_ring.size(1); // Second dimension
-    int order = compute_order(nside);
-
-    int block_size = 256;
-    int num_blocks = (num_elements + block_size - 1)/ block_size;
-
-    // Calculate block and grid dimensions
-    dim3 block_dim(32, 4, 4); // Example 3D block dimensions
-    dim3 grid_dim((num_elements + block_dim.x - 1) / block_dim.x,
-                  (n + block_dim.y - 1) / block_dim.y,
-                  (m + block_dim.z - 1) / block_dim.z);
-
-    // Allocate device memory
-    int* d_pix_array;
-    int* d_ix_array;
-    int* d_iy_array;
-    int* d_face_num_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_ix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_iy_array, num_elements * sizeof(int));
-    cudaMalloc(&d_face_num_array, num_elements * sizeof(int));
-
-    // Launch kernels
-    initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-    ring2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-    xyf2nest_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-
-    // Adjust kernel launch for 3D data
-    rearrange_data_kernel_3d_batch<<<grid_dim, block_dim>>>(data_in_ring.data_ptr<T>(), data_in_nest.data_ptr<T>(), d_pix_array, m, n, num_elements);
-
-    // Free device memory
-    cudaFree(d_pix_array);
-    cudaFree(d_ix_array);
-    cudaFree(d_iy_array);
-    cudaFree(d_face_num_array);
-}
-
-template <typename T>
-void nest2ring_batch_kernel_wrapper(torch::Tensor data_in_nest, torch::Tensor data_in_ring,
-                              const int nside, const size_t num_elements) {
-
-    // Check tensor dimensions and sizes
-    TORCH_CHECK(data_in_nest.dim() == 3, "data_in_nest must be a 3D tensor");
-    TORCH_CHECK(data_in_ring.dim() == 3, "data_in_ring must be a 3D tensor");
-
-    int m = data_in_nest.size(0); // First dimension
-    int n = data_in_nest.size(1); // Second dimension
-    int order = compute_order(nside);
-
-    int block_size = 256;
-    int num_blocks = (num_elements + block_size - 1)/ block_size;
-
-    // Calculate block and grid dimensions
-    dim3 block_dim(32, 4, 4); // Example 3D block dimensions
-    dim3 grid_dim((num_elements + block_dim.x - 1) / block_dim.x,
-                  (n + block_dim.y - 1) / block_dim.y,
-                  (m + block_dim.z - 1) / block_dim.z);
-
-    // Allocate device memory
-    int* d_pix_array;
-    int* d_ix_array;
-    int* d_iy_array;
-    int* d_face_num_array;
-
-    cudaMalloc(&d_pix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_ix_array, num_elements * sizeof(int));
-    cudaMalloc(&d_iy_array, num_elements * sizeof(int));
-    cudaMalloc(&d_face_num_array, num_elements * sizeof(int));
-
-    // Launch kernels
-    initialize_pix_array<<<num_blocks, block_size>>>(d_pix_array, num_elements);
-    nest2xyf_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-    xyf2ring_kernel<<<num_blocks, block_size>>>(d_pix_array, d_ix_array, d_iy_array, d_face_num_array, order, nside, num_elements);
-
-    // Adjust kernel launch for 3D data
-    rearrange_data_kernel_3d_batch<<<grid_dim, block_dim>>>(data_in_nest.data_ptr<T>(), data_in_ring.data_ptr<T>(), d_pix_array, m, n, num_elements);
-
-    // Free device memory
-    cudaFree(d_pix_array);
-    cudaFree(d_ix_array);
-    cudaFree(d_iy_array);
-    cudaFree(d_face_num_array);
-}
-*/
 
 // Dispatch functions for each wrapper
 void ring2nest_batch_dispatch(torch::Tensor data_in_ring, torch::Tensor data_in_nest, const int nside, const size_t num_elements) {
@@ -1677,11 +1137,11 @@ void nest2ring_batch_dispatch(torch::Tensor data_in_nest, torch::Tensor data_in_
 
 void nest2xy_batch_dispatch(torch::Tensor data_in_nest, torch::Tensor data_in_xy, const int src_origin, const bool src_clockwise,
                       const int dest_origin, const bool dest_clockwise, const int nside, const size_t num_elements) {
-
+    
     AT_DISPATCH_ALL_TYPES(data_in_nest.scalar_type(), "nest2xy_batch", ([&] {
         nest2xy_batch_kernel_wrapper<scalar_t>(data_in_nest, data_in_xy, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
 
 void xy2nest_batch_dispatch(torch::Tensor data_in_xy, torch::Tensor data_in_nest, const int src_origin, const bool src_clockwise,
@@ -1699,7 +1159,7 @@ void ring2xy_batch_dispatch(torch::Tensor data_in_ring, torch::Tensor data_in_xy
     AT_DISPATCH_ALL_TYPES(data_in_ring.scalar_type(), "ring2xy_batch", ([&] {
         ring2xy_batch_kernel_wrapper<scalar_t>(data_in_ring, data_in_xy, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
 
 void xy2ring_batch_dispatch(torch::Tensor data_in_xy, torch::Tensor data_in_ring, const int src_origin, const bool src_clockwise,
@@ -1708,7 +1168,7 @@ void xy2ring_batch_dispatch(torch::Tensor data_in_xy, torch::Tensor data_in_ring
     AT_DISPATCH_ALL_TYPES(data_in_xy.scalar_type(), "xy2ring_batch", ([&] {
         xy2ring_batch_kernel_wrapper<scalar_t>(data_in_xy, data_in_ring, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
 
 void xy2xy_batch_dispatch(torch::Tensor data_xy_in, torch::Tensor data_xy_out, const int src_origin, const bool src_clockwise,
@@ -1717,5 +1177,6 @@ void xy2xy_batch_dispatch(torch::Tensor data_xy_in, torch::Tensor data_xy_out, c
     AT_DISPATCH_ALL_TYPES(data_xy_in.scalar_type(), "xy2xy_batch", ([&] {
         xy2xy_batch_kernel_wrapper<scalar_t>(data_xy_in, data_xy_out, src_origin, src_clockwise, dest_origin, dest_clockwise, nside, num_elements);
     }));
-
+    
 }
+

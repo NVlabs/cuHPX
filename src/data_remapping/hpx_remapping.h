@@ -43,9 +43,6 @@ void xy2ring_dispatch(torch::Tensor data_in_xy, torch::Tensor data_in_ring, cons
 void xy2xy_dispatch(torch::Tensor data_xy_in, torch::Tensor data_xy_out, const int src_origin, const bool src_clockwise,
                     const int dest_origin, const bool dest_clockwise, const int nside, const size_t num_elements);
 
-void benchmark_nest_ring_dispatch(torch::Tensor data_in_nest, torch::Tensor data_in_ring, const int nside, const size_t num_elements);
-
-
 void ring2nest_batch_dispatch(torch::Tensor data_in_ring, torch::Tensor data_in_nest, const int nside, const size_t num_elements);
 
 void nest2ring_batch_dispatch(torch::Tensor data_in_nest, torch::Tensor data_in_ring, const int nside, const size_t num_elements);
@@ -66,3 +63,4 @@ void xy2xy_batch_dispatch(torch::Tensor data_xy_in, torch::Tensor data_xy_out, c
                     const int dest_origin, const bool dest_clockwise, const int nside, const size_t num_elements);
 
 #endif // HPX_REMAPPING_H
+

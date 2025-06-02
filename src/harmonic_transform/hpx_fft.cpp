@@ -421,11 +421,6 @@ torch::Tensor healpix_irfft_cuda(torch::Tensor ftm, int L, int nside) {
 }
 
 
-// PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-//     m.def("healpix_rfft_cuda", &healpix_rfft_cuda, "HEALPix RFFT with cuFFT and CUDA");
-//     m.def("healpix_irfft_cuda", &healpix_irfft_cuda, "HEALPix IRFFT with cuFFT and CUDA");
-// }
-
 int nphi_ring(int t, int nside);
 int cumulative_nphi_ring(int t, int nside);
 double p2phi_ring(int t, int offset, int nside);
