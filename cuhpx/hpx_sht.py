@@ -13,10 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import cuhpx_fft
+from . import cuhpx_fft
 import numpy as np
 import torch
-import torch.cuda.nvtx
 import torch.nn as nn
 from torch.autograd import Function
 
@@ -449,13 +448,10 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
     device = torch.device("cuda")
     chunk_size = int(weights.size(1) / nchunk + 1)  # Adjust this based on your memory constraints
 
-    torch.cuda.nvtx.range_push("Allocate memory for chunk")
     next_chunk_cpu = torch.empty((weights.size(0), chunk_size, weights.size(2)), dtype=weights.dtype, pin_memory=True)
     current_chunk = torch.empty((weights.size(0), chunk_size, weights.size(2)), dtype=weights.dtype, device=device)
     next_chunk = torch.empty_like(current_chunk)
-    torch.cuda.nvtx.range_pop()
 
-    torch.cuda.nvtx.range_push("einsum between x and weights with chunking")
 
     # Create events for synchronization
     event_transfer = torch.cuda.Event(blocking=True)
@@ -475,39 +471,29 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
         if actual_chunk_size != chunk_size:
             next_chunk_cpu.resize_((weights.size(0), actual_chunk_size, weights.size(2)))
 
-        torch.cuda.nvtx.range_push("CPU copy from weights to pin memory")
         next_chunk_cpu.copy_(weights[:, start_i:end_i, :])
-        torch.cuda.nvtx.range_pop()
 
         with torch.cuda.stream(stream1):
-            torch.cuda.nvtx.range_push(f"Transfer weights chunk {i}:{end_i} to GPU")
             next_chunk[: weights.size(0), : end_i - start_i, :].copy_(next_chunk_cpu, non_blocking=True)
             event_transfer.record(stream1)
-            torch.cuda.nvtx.range_pop()
 
-        torch.cuda.nvtx.range_push(f"Compute einsum for chunk {i - chunk_size}:{end_i - chunk_size}")
         xout[..., start_j:end_j, :, :] = torch.einsum(
             '...kmn,mlk->...lmn', x, current_chunk[:, : end_j - start_j, :].to(x.dtype)
         )
 
         event_computation.record(torch.cuda.current_stream())
-        torch.cuda.nvtx.range_pop()
         torch.cuda.current_stream().wait_event(event_transfer)
 
         current_chunk, next_chunk = next_chunk, current_chunk
         start_j, end_j = start_i, end_i
 
     if start_i < weights.size(1):
-        torch.cuda.nvtx.range_push("Compute einsum for the last chunk")
         xout[..., start_i:end_i, :, :] = torch.einsum(
             '...kmn,mlk->...lmn', x, current_chunk[:, : end_i - start_i, :].to(x.dtype)
         )
-        torch.cuda.nvtx.range_pop()
 
     stream1.synchronize()
     torch.cuda.current_stream().synchronize()
-
-    torch.cuda.nvtx.range_pop()  # End of einsum with chunking
 
     return xout
 
@@ -523,14 +509,11 @@ class SHTFunction(Function):
         ctx.lmax = lmax
         ctx.nside = nside
 
-        torch.cuda.nvtx.range_push("rfft")
         # SHT
         if x.dim() == 1:
             x = cuhpx_fft.healpix_rfft_class(x, mmax, nside)
         else:
             x = cuhpx_fft.healpix_rfft_batch(x, mmax, nside)
-
-        torch.cuda.nvtx.range_pop()
 
         x = torch.view_as_real(x)
 
@@ -538,24 +521,16 @@ class SHTFunction(Function):
         out_shape[-3] = lmax
         out_shape[-2] = mmax
 
-        torch.cuda.nvtx.range_push("allocate xout")
         xout = torch.zeros(out_shape, dtype=x.dtype, device=x.device)
-        torch.cuda.nvtx.range_pop()
 
-        torch.cuda.nvtx.range_push("einsum between pct and weights")
         weights = pct * weights
-        torch.cuda.nvtx.range_pop()
 
         if not pct.is_cuda:
-            torch.cuda.nvtx.range_push("einsum between x and weights using two stream")
             nchunk = 12
             stream1 = torch.cuda.Stream()
             xout = einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1)
-            torch.cuda.nvtx.range_pop()
         else:
-            torch.cuda.nvtx.range_push("einsum between x and weights")
             xout = torch.einsum('...kmn,mlk->...lmn', x, weights.to(x.dtype))
-            torch.cuda.nvtx.range_pop()
 
         x = torch.view_as_complex(xout.contiguous())
 
@@ -595,18 +570,14 @@ class iSHTFunction(Function):
 
         x = torch.view_as_real(x)
 
-        torch.cuda.nvtx.range_push("einsum between x and pct")
         xs = torch.einsum('...lmn, mlk->...kmn', x, pct.to(x.dtype))
-        torch.cuda.nvtx.range_pop()
 
         x = torch.view_as_complex(xs.contiguous())
 
-        torch.cuda.nvtx.range_push("irfft")
         if x.dim() == 2:
             x = cuhpx_fft.healpix_irfft_class(x, mmax, nside)
         else:
             x = cuhpx_fft.healpix_irfft_batch(x, mmax, nside)
-        torch.cuda.nvtx.range_pop()
 
         return x
 

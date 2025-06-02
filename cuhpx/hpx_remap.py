@@ -13,9 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import cuhpx_remap
 import torch
-
+from . import cuhpx_remap
 
 def is_power_of_two(n):
     return (n > 0) and (n & (n - 1)) == 0
