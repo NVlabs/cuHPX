@@ -14,7 +14,7 @@ interpolation between HEALPix and equiangular lat/lon grids.
 To setup the library, run
 
 ```bash
-git clone https://gitlab-master.nvidia.com/Devtech-Compute/cuhpx.git
+git clone https://github.com/NVlabs/cuHPX
 cd cuhpx
 pip install --no-build-isolation .
 ```
