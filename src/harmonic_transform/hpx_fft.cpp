@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include <torch/extension.h> 
 #include "hpx_fft.h"
 #include <cmath>
 
@@ -666,7 +667,7 @@ torch::Tensor healpix_irfft(torch::Tensor ftm, int L, int nside) {
     return f;
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+PYBIND11_MODULE(cuhpx_fft, m) {
     m.def("healpix_rfft", &healpix_rfft, "HEALPix RFFT");
     m.def("healpix_irfft", &healpix_irfft, "HEALPix IRFFT");
     m.def("healpix_rfft_cufft", &healpix_rfft_cufft, "HEALPix RFFT with cuFFT");
