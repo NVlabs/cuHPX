@@ -1,21 +1,24 @@
 [build-system]
-requires = ["torch", "setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.8", "pybind11>=2.12", "numpy"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "cuHPX"
-version = "2025.5.1"
-description = "GPU-accelerated utilities for data on HEALPix grids."
-readme = "README.md"
-license = { file="LICENSE.txt" }
+version = "2025.8.1"
+description = "CUDA-accelerated HEALPix tools for harmonic transforms and remapping"
 authors = [
-    { name = "NVIDIA", email = "asubramaniam@nvidia.com" }
+  { name = "Xiaopo Cheng", email = "xiaopoc@nvidia.com" },
+  { name = "Akshay Subramaniam", email = "asubramaniam@nvidia.com" }
 ]
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+requires-python = ">=3.8"
 dependencies = [
-    "numpy",
-    "torch>=2.0.0",
-    "astropy",
-    "torch_harmonics",
+  "numpy",
+  "astropy",
+  "torch_harmonics"
+  # Expect PyTorch preinstalled in the environment; if you want to enforce:
+  # "torch>=2.4",
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -32,6 +35,18 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/NVlabs/cuHPX"
 
+[tool.scikit-build]
+wheel.packages = ["cuhpx"]
+cmake.minimum-version = "3.18"
+cmake.source-dir = "."
+# Keep build artifacts in build/, not alongside sources
+build-dir = "build/{wheel_tag}"
+sdist.include = ["src", "cuhpx", "tests", "CMakeLists.txt", "LICENSE.txt", "README.md"]
+
+[tool.scikit-build.editable]
+# Key: makes editable installs load extensions from build/ via a redirect hook
+mode = "redirect"
+verbose = true
 
 [tool.black]
 line-length = 120

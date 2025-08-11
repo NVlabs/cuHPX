@@ -495,6 +495,7 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
     stream1.synchronize()
     torch.cuda.current_stream().synchronize()
 
+
     return xout
 
 
@@ -514,6 +515,7 @@ class SHTFunction(Function):
             x = cuhpx_fft.healpix_rfft_class(x, mmax, nside)
         else:
             x = cuhpx_fft.healpix_rfft_batch(x, mmax, nside)
+
 
         x = torch.view_as_real(x)
 
