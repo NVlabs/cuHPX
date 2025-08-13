@@ -7,8 +7,7 @@ name = "cuHPX"
 version = "2025.8.1"
 description = "CUDA-accelerated HEALPix tools for harmonic transforms and remapping"
 authors = [
-  { name = "Xiaopo Cheng", email = "xiaopoc@nvidia.com" },
-  { name = "Akshay Subramaniam", email = "asubramaniam@nvidia.com" }
+  { name = "NVIDIA", email = "asubramaniam@nvidia.com" }
 ]
 readme = "README.md"
 license = { file = "LICENSE.txt" }
