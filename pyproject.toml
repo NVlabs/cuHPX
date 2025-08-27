@@ -15,9 +15,9 @@ requires-python = ">=3.8"
 dependencies = [
   "numpy",
   "astropy",
-  "torch_harmonics"
+  "torch_harmonics",
   # Expect PyTorch preinstalled in the environment; if you want to enforce:
-  # "torch>=2.4",
+  "torch>=2.4",
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",

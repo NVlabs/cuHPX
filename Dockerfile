@@ -5,6 +5,7 @@ RUN apt-get update
 
 COPY . /cuhpx
 RUN cd /cuhpx && \
+    pip install scikit-build-core>=0.8 && \
     pip install --no-build-isolation .
 
 # Set the default command for the container

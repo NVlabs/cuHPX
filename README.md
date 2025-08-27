@@ -16,6 +16,7 @@ To setup the library, run
 ```bash
 git clone https://gitlab-master.nvidia.com/Devtech-Compute/cuhpx.git
 cd cuhpx
+pip install scikit-build-core>=0.8
 pip install --no-build-isolation .
 ```
 
