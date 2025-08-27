@@ -103,4 +103,3 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cuhpx/data
   DESTINATION cuhpx
   FILES_MATCHING PATTERN "*.fits"
 )
-

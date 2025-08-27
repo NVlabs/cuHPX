@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import cuhpx_fft
 import numpy as np
 import torch
 import torch.nn as nn
@@ -31,6 +30,8 @@ from cuhpx.sht_tools import (
     nphi_ring,
     p2phi_ring,
 )
+
+from . import cuhpx_fft
 
 
 def healpix_rfft_torch(f: torch.tensor, L: int, nside: int) -> torch.tensor:
@@ -452,7 +453,6 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
     current_chunk = torch.empty((weights.size(0), chunk_size, weights.size(2)), dtype=weights.dtype, device=device)
     next_chunk = torch.empty_like(current_chunk)
 
-
     # Create events for synchronization
     event_transfer = torch.cuda.Event(blocking=True)
     event_computation = torch.cuda.Event(blocking=True)
@@ -495,7 +495,6 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
     stream1.synchronize()
     torch.cuda.current_stream().synchronize()
 
-
     return xout
 
 
@@ -515,7 +514,6 @@ class SHTFunction(Function):
             x = cuhpx_fft.healpix_rfft_class(x, mmax, nside)
         else:
             x = cuhpx_fft.healpix_rfft_batch(x, mmax, nside)
-
 
         x = torch.view_as_real(x)
 
