@@ -13,79 +13,148 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for grid regridding operations."""
+
 import random
 
+import pytest
 import torch
 
 import cuhpx
 from cuhpx import Grid, Regridding
 
 
-def random_fill_matrix(n, xmax, matrix):
-    for _ in range(n):
-        v = random.random()  # Generate a random float number between 0 and 1
-        x = random.randint(0, xmax - 1)  # Generate a random int number, 0 <= x < xmax
-        y = random.randint(0, x)  # Generate a random int number, 0 <= y <= x
-        matrix[x, y] = v  # Fill the matrix at position (x, y) with the value v
+def _generate_bandlimited_coeffs(
+    lmax, mmax, n_nonzero=100, seed=42, bandwidth_fraction=0.5, complex_dtype=torch.complex128
+):
+    """Generate sparse spherical harmonic coefficients for testing.
 
-    return matrix
+    Args:
+        lmax: Maximum degree l (size of coefficient array).
+        mmax: Maximum order m (size of coefficient array).
+        n_nonzero: Number of non-zero coefficients.
+        seed: Random seed for reproducibility.
+        bandwidth_fraction: Fraction of lmax/mmax to populate (default 0.5).
+            Using a fraction < 1.0 ensures the signal is strictly bandlimited
+            with headroom for perfect roundtrip through SHT.
+        complex_dtype: Complex dtype for coefficients (default torch.complex128).
+
+    Returns:
+        Complex tensor of shape (lmax, mmax) with sparse coefficients.
+    """
+    random.seed(seed)
+    coeff = torch.zeros((lmax, mmax), dtype=complex_dtype)
+
+    # Limit the bandwidth to ensure strict bandlimiting
+    max_l = max(1, int(lmax * bandwidth_fraction))
+    max_m = max(1, int(mmax * bandwidth_fraction))
+
+    for _ in range(n_nonzero):
+        v = random.random()
+        x = random.randint(0, max_l - 1)
+        y = random.randint(0, min(x, max_m - 1))
+        coeff[x, y] = v
+
+    return coeff
 
 
-def generate_xyv(n, xmax, xmin):
-    v, x, y = [], [], []
-    for _ in range(n):
-        vi = random.random()  # Generate a random float number between 0 and 1
-        xi = random.randint(xmin, xmax - 1)  # Generate a random int number, 0 <= x < xmax
-        yi = random.randint(xmin, xi)  # Generate a random int number, 0 <= y <= x
+@pytest.mark.cuda
+class TestRegridding:
+    """Test regridding between different grid types."""
 
-        v.append(vi)
-        x.append(xi)
-        y.append(yi)
+    def test_healpix_equiangular_roundtrip(self, device, nside, dtype, complex_dtype):
+        """Test HEALPix -> Equiangular -> HEALPix roundtrip."""
+        # Use lmax that is compatible with both grids
+        # For equiangular grid of size (2*nside, 4*nside), lmax should be < 2*nside
+        lmax = 2 * nside - 1
+        mmax = lmax
 
-    return x, y, v
+        src_grid = Grid("healpix", nside)
+        dest_grid = Grid("equiangular", (2 * nside, 4 * nside))
 
+        # Create bandlimited signal
+        isht = cuhpx.iSHT(nside, lmax=lmax, mmax=mmax)
+        coeff = _generate_bandlimited_coeffs(lmax, mmax, n_nonzero=50, complex_dtype=complex_dtype)
+        signal = isht(coeff).to(device).to(dtype)
 
-def fill_matrix(x, y, v, matrix):
+        hpx2eq = Regridding(src_grid, dest_grid, lmax=lmax, mmax=mmax, device=device)
+        eq2hpx = Regridding(dest_grid, src_grid, lmax=lmax, mmax=mmax, device=device)
 
-    n = len(x)
-    for i in range(n):
-        matrix[x[i], y[i]] = v[i]  # Fill the matrix at position (x, y) with the value v
-    return matrix
+        signal_eq = hpx2eq.execute(signal)
+        signal_back = eq2hpx.execute(signal_eq)
 
+        # For bandlimited signals, roundtrip should be accurate
+        # rtol=0.02 (2% relative tolerance), atol=0.05 for regridding which has more numerical error
+        assert torch.allclose(
+            signal_back, signal, rtol=0.02, atol=0.05
+        ), f"Regridding roundtrip failed: max diff = {(signal_back - signal).abs().max():.2e}"
 
-nside = int(input("Enter the nside value: "))
+    def test_regridding_preserves_dtype(self, device, nside_small, dtype, complex_dtype):
+        """Test that regridding preserves data type."""
+        nside = nside_small
+        lmax = 2 * nside - 1
+        mmax = lmax
 
-xmax = 2 * nside - 1
-xmin = 0
-xg, yg, vg = generate_xyv(100, xmax, xmin)
+        isht = cuhpx.iSHT(nside, lmax=lmax, mmax=mmax)
+        coeff = _generate_bandlimited_coeffs(lmax, mmax, n_nonzero=50, complex_dtype=complex_dtype)
+        signal = isht(coeff).to(device).to(dtype)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        src_grid = Grid("healpix", nside)
+        dest_grid = Grid("equiangular", (2 * nside, 4 * nside))
+        regrid = Regridding(src_grid, dest_grid, lmax=lmax, mmax=mmax, device=device)
 
-npix = 12 * nside**2
+        output = regrid.execute(signal)
+        assert output.dtype == dtype, f"Expected {dtype}, got {output.dtype}"
 
-lmax = 2 * nside + 1
-mmax = lmax
+    def test_grid_creation(self):
+        """Test Grid class instantiation."""
+        # HEALPix grid
+        hpx_grid = Grid("healpix", 64)
+        assert hpx_grid.grid == "healpix"
+        assert hpx_grid.nside == 64
 
-# synthetic data with finite bandwidth
-sht = cuhpx.SHT(nside, lmax=lmax, mmax=mmax)
-isht = cuhpx.iSHT(nside, lmax=lmax, mmax=mmax)
+        # Equiangular grid
+        eq_grid = Grid("equiangular", (128, 256))
+        assert eq_grid.grid == "equiangular"
+        assert eq_grid.nlat == 128
+        assert eq_grid.nlon == 256
 
-coeff = torch.zeros((lmax, mmax), dtype=torch.complex128)
-coeff = fill_matrix(xg, yg, vg, coeff)
-signal_hpx = isht(coeff).to(device)
+    def test_regridding_output_shape(self, device, nside_small, dtype):
+        """Test that regridding produces correct output shapes."""
+        nside = nside_small
+        lmax = 2 * nside - 1
+        mmax = lmax
 
-# regridding
-src_grid = Grid('healpix', nside)
-dest_grid = Grid('equiangular', (2 * nside, 4 * nside))
+        npix = 12 * nside**2
+        signal = torch.randn(npix, dtype=dtype, device=device)
 
-hpx2eq = Regridding(src_grid, dest_grid, lmax=lmax, mmax=mmax, device=device)
-eq2hpx = Regridding(dest_grid, src_grid, lmax=lmax, mmax=mmax, device=device)
+        src_grid = Grid("healpix", nside)
+        nlat, nlon = 2 * nside, 4 * nside
+        dest_grid = Grid("equiangular", (nlat, nlon))
 
-signal_eq = hpx2eq.execute(signal_hpx)
-signal_hpx_back = eq2hpx.execute(signal_eq)
+        regrid = Regridding(src_grid, dest_grid, lmax=lmax, mmax=mmax, device=device)
+        output = regrid.execute(signal)
 
-diff = signal_hpx_back - signal_hpx
-rms = torch.sqrt((diff.pow(2)).mean())
-max_value = torch.max(diff.abs())
+        expected_shape = (nlat, nlon)
+        assert output.shape == expected_shape, f"Expected shape {expected_shape}, got {output.shape}"
 
-print(f'regridding error: nside={nside}, rms = {rms}, max difference = {max_value}')
+    def test_healpix_to_equiangular(self, device, nside_small, dtype):
+        """Test one-way regridding from HEALPix to equiangular grid."""
+        nside = nside_small
+        lmax = 2 * nside - 1
+        mmax = lmax
+
+        npix = 12 * nside**2
+        torch.manual_seed(42)
+        signal = torch.randn(npix, dtype=dtype, device=device)
+
+        src_grid = Grid("healpix", nside)
+        dest_grid = Grid("equiangular", (2 * nside, 4 * nside))
+
+        regrid = Regridding(src_grid, dest_grid, lmax=lmax, mmax=mmax, device=device)
+        output = regrid.execute(signal)
+
+        # Basic sanity checks
+        assert not torch.isnan(output).any(), "NaN in regridding output"
+        assert not torch.isinf(output).any(), "Inf in regridding output"
+        assert output.shape == (2 * nside, 4 * nside)

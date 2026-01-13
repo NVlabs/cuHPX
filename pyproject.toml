@@ -31,6 +31,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=7.0", "pytest-cov>=4.0", "healpy"]
+
 [project.urls]
 "Homepage" = "https://github.com/NVlabs/cuHPX"
 
@@ -130,3 +133,30 @@ target-version = 'py38'
     "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
     "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+markers = [
+    "cuda: marks tests as requiring CUDA GPU",
+    "slow: marks tests as slow running",
+]
+filterwarnings = [
+    "ignore::SyntaxWarning",
+]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["cuhpx"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true

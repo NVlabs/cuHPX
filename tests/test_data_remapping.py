@@ -13,64 +13,76 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for data remapping operations (ring2nest, nest2ring) against healpy reference."""
+
 import healpy as hp
+import pytest
 import torch
 
 import cuhpx as hpx
 
-# Read the order value from user input
-nside = int(input("Enter the nside value: "))
-nelements = 12 * nside**2
 
-# Check if CUDA is available
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+@pytest.mark.cuda
+@pytest.mark.parametrize("dtype", [torch.int32, torch.float64])
+def test_ring2nest_matches_healpy(device, nside, dtype):
+    """Test that ring2nest produces identical results to healpy."""
+    npix = 12 * nside**2
+    tensor_ring = torch.arange(npix, device=device, dtype=dtype)
 
+    # cuHPX ring2nest
+    result_hpx = hpx.ring2nest(tensor_ring, nside).cpu()
 
-# Function to test ring2nest and nest2ring for a given dtype
-def test_ring2nest_nest2ring(dtype):
-    # Generate the input tensor in RING ordering
-    tensor_in_ring = torch.arange(nelements, device=device, dtype=dtype)
+    # healpy reference
+    result_healpy = torch.tensor(
+        hp.pixelfunc.reorder(tensor_ring.cpu().numpy(), inp="RING", out="NESTED"),
+        dtype=dtype,
+    )
 
-    # Print the first five elements of the input tensor for ring2nest
-    print(f"Input tensor (RING, dtype={dtype}) first 5 elements:", tensor_in_ring[:5])
-
-    # Use hpx.ring2nest to convert to NESTED ordering
-    tensor_in_nest = hpx.ring2nest(tensor_in_ring, nside)
-    result_tensor_hpx_nest = tensor_in_nest.to('cpu')
-
-    # Use healpy.pixelfunc.reorder to convert to NESTED ordering
-    map_in_ring = tensor_in_ring.cpu().numpy()
-    result_tensor_healpy_nest = torch.tensor(hp.pixelfunc.reorder(map_in_ring, inp='RING', out='NESTED'), dtype=dtype)
-
-    # Compare the results
-    comparison_ring2nest = torch.equal(result_tensor_hpx_nest, result_tensor_healpy_nest)
-    print(f"Are the ring2nest results identical (dtype={dtype})?", comparison_ring2nest)
-    print(f"HPX ring2nest result (dtype={dtype}) first 5 elements:", result_tensor_hpx_nest[:5])
-    print(f"Healpy ring2nest result (dtype={dtype}) first 5 elements:", result_tensor_healpy_nest[:5])
-
-    # Generate the input tensor in NEST ordering for nest2ring
-    tensor_in_nest = torch.arange(nelements, device=device, dtype=dtype)
-
-    # Print the first five elements of the input tensor for nest2ring
-    print(f"Input tensor (NEST, dtype={dtype}) first 5 elements:", tensor_in_nest[:5])
-
-    # Use hpx.nest2ring to convert to RING ordering
-    tensor_in_ring = hpx.nest2ring(tensor_in_nest, nside)
-    result_tensor_hpx_ring = tensor_in_ring.to('cpu')
-
-    # Use healpy.pixelfunc.reorder to convert to RING ordering
-    map_in_nest = tensor_in_nest.cpu().numpy()
-    result_tensor_healpy_ring = torch.tensor(hp.pixelfunc.reorder(map_in_nest, inp='NESTED', out='RING'), dtype=dtype)
-
-    # Compare the results
-    comparison_nest2ring = torch.equal(result_tensor_hpx_ring, result_tensor_healpy_ring)
-    print(f"Are the nest2ring results identical (dtype={dtype})?", comparison_nest2ring)
-    print(f"HPX nest2ring result (dtype={dtype}) first 5 elements:", result_tensor_hpx_ring[:5])
-    print(f"Healpy nest2ring result (dtype={dtype}) first 5 elements:", result_tensor_healpy_ring[:5])
+    assert torch.equal(result_hpx, result_healpy), f"ring2nest mismatch for nside={nside}, dtype={dtype}"
 
 
-# Test for int32
-test_ring2nest_nest2ring(torch.int32)
+@pytest.mark.cuda
+@pytest.mark.parametrize("dtype", [torch.int32, torch.float64])
+def test_nest2ring_matches_healpy(device, nside, dtype):
+    """Test that nest2ring produces identical results to healpy."""
+    npix = 12 * nside**2
+    tensor_nest = torch.arange(npix, device=device, dtype=dtype)
 
-# Test for float64 (double)
-test_ring2nest_nest2ring(torch.float64)
+    # cuHPX nest2ring
+    result_hpx = hpx.nest2ring(tensor_nest, nside).cpu()
+
+    # healpy reference
+    result_healpy = torch.tensor(
+        hp.pixelfunc.reorder(tensor_nest.cpu().numpy(), inp="NESTED", out="RING"),
+        dtype=dtype,
+    )
+
+    assert torch.equal(result_hpx, result_healpy), f"nest2ring mismatch for nside={nside}, dtype={dtype}"
+
+
+@pytest.mark.cuda
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_ring2nest_nest2ring_roundtrip(device, nside, dtype):
+    """Test that ring2nest followed by nest2ring recovers the original data."""
+    npix = 12 * nside**2
+    original = torch.randn(npix, device=device, dtype=dtype)
+
+    # Round trip: ring -> nest -> ring
+    nested = hpx.ring2nest(original, nside)
+    recovered = hpx.nest2ring(nested, nside)
+
+    assert torch.equal(original, recovered), f"Round-trip failed for nside={nside}, dtype={dtype}"
+
+
+@pytest.mark.cuda
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_nest2ring_ring2nest_roundtrip(device, nside, dtype):
+    """Test that nest2ring followed by ring2nest recovers the original data."""
+    npix = 12 * nside**2
+    original = torch.randn(npix, device=device, dtype=dtype)
+
+    # Round trip: nest -> ring -> nest
+    ring = hpx.nest2ring(original, nside)
+    recovered = hpx.ring2nest(ring, nside)
+
+    assert torch.equal(original, recovered), f"Round-trip failed for nside={nside}, dtype={dtype}"

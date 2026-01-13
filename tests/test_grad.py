@@ -13,65 +13,78 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for gradient computation of SHT/iSHT operations."""
+
+import pytest
 import torch
 
 from cuhpx import SHT, SHTCUDA, iSHT, iSHTCUDA
 
-# Check if CUDA is available
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-nside = 32
-npix = 12 * nside**2
-signal = torch.randn(npix, dtype=torch.float32).to(device)
+@pytest.mark.cuda
+class TestSHTGradients:
+    """Test gradient computation for spherical harmonic transforms."""
 
+    @pytest.fixture
+    def nside_fixed(self):
+        """Return fixed nside for gradient tests."""
+        return 32
 
-quad_weights = 'ring'
-lmax = 2 * nside + 1
-mmax = lmax
+    @pytest.fixture
+    def lmax_fixed(self, nside_fixed):
+        """Return lmax for fixed nside."""
+        return 2 * nside_fixed + 1
 
-sht = SHT(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights).to(device)
-isht = iSHT(nside, lmax=lmax, mmax=mmax).to(device)
+    @pytest.fixture
+    def signal(self, device, nside_fixed, dtype):
+        """Create a random test signal."""
+        npix = 12 * nside_fixed**2
+        return torch.randn(npix, dtype=dtype, device=device)
 
-coeff = sht(signal)
+    @pytest.fixture
+    def sht_autograd(self, device, nside_fixed, lmax_fixed):
+        """Create SHT with autograd support."""
+        return SHT(nside_fixed, lmax=lmax_fixed, mmax=lmax_fixed, quad_weights="ring").to(device)
 
-sht_cuda = SHTCUDA(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights).to(device)
-isht_cuda = iSHTCUDA(nside, lmax=lmax, mmax=mmax).to(device)
+    @pytest.fixture
+    def isht_autograd(self, device, nside_fixed, lmax_fixed):
+        """Create iSHT with autograd support."""
+        return iSHT(nside_fixed, lmax=lmax_fixed, mmax=lmax_fixed).to(device)
 
-signal1 = torch.clone(signal)
-signal2 = torch.clone(signal)
+    @pytest.fixture
+    def sht_cuda(self, device, nside_fixed, lmax_fixed):
+        """Create SHTCUDA with custom backward."""
+        return SHTCUDA(nside_fixed, lmax=lmax_fixed, mmax=lmax_fixed, quad_weights="ring").to(device)
 
-signal1.requires_grad_(True)
-signal2.requires_grad_(True)
+    @pytest.fixture
+    def isht_cuda(self, device, nside_fixed, lmax_fixed):
+        """Create iSHTCUDA with custom backward."""
+        return iSHTCUDA(nside_fixed, lmax=lmax_fixed, mmax=lmax_fixed).to(device)
 
-c1 = sht(signal1)
-c2 = sht_cuda(signal2)
+    def test_sht_gradient_flow(self, signal, sht_cuda):
+        """Test that gradients flow through SHTCUDA."""
+        signal_grad = signal.clone().requires_grad_(True)
+        coeff = sht_cuda(signal_grad)
 
-c1.backward(torch.clone(c1))
-c2.backward(torch.clone(c1))
+        # Create a scalar loss
+        loss = coeff.abs().sum()
+        loss.backward()
 
-diff = signal1.grad - signal2.grad
+        assert signal_grad.grad is not None, "Gradient not computed for SHT"
+        assert not torch.isnan(signal_grad.grad).any(), "NaN in SHT gradient"
+        assert not torch.isinf(signal_grad.grad).any(), "Inf in SHT gradient"
 
-print('-----------------------')
-print('Mean of Autograd of SHT: ', torch.mean(signal1.grad.abs()))
-print('Mean of manual of SHT: ', torch.mean(signal2.grad.abs()))
-print('diff between the grad of SHT: ', torch.mean(diff.abs()))
-print('ratio', torch.mean(diff.abs()) / torch.mean(signal1.grad.abs()))
+    def test_isht_gradient_flow(self, signal, sht_autograd, isht_cuda):
+        """Test that gradients flow through iSHTCUDA."""
+        coeff = sht_autograd(signal)
+        coeff_grad = coeff.clone().requires_grad_(True)
 
-coeff1 = torch.clone(coeff)
-coeff2 = torch.clone(coeff)
+        signal_out = isht_cuda(coeff_grad)
 
-coeff1.requires_grad_(True)
-coeff2.requires_grad_(True)
+        # Create a scalar loss
+        loss = signal_out.abs().sum()
+        loss.backward()
 
-s1 = isht(coeff1)
-s2 = isht_cuda(coeff2)
-
-s1.backward(torch.clone(s1))
-s2.backward(torch.clone(s1))
-
-diff = coeff1.grad - coeff2.grad
-
-print('Mean of Autograd of iSHT: ', torch.mean(coeff1.grad.abs()))
-print('Mean of manual of iSHT: ', torch.mean(coeff2.grad.abs()))
-print('diff between the grad of iSHT: ', torch.mean(diff.abs()))
-print('ratio', torch.mean(diff.abs()) / torch.mean(coeff1.grad.abs()))
+        assert coeff_grad.grad is not None, "Gradient not computed for iSHT"
+        assert not torch.isnan(coeff_grad.grad).any(), "NaN in iSHT gradient"
+        assert not torch.isinf(coeff_grad.grad).any(), "Inf in iSHT gradient"

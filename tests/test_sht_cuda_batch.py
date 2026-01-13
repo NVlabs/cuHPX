@@ -13,43 +13,101 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for batched SHT/iSHT CUDA operations."""
+
+import pytest
 import torch
 
 from cuhpx import SHTCUDA, iSHTCUDA
 
-# Check if CUDA is available
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-nside = int(input('nside: '))
-m = int(input('m, the first dim: '))
-n = int(input('n, the second dim: '))
+@pytest.mark.cuda
+class TestSHTCUDABatch:
+    """Test batched spherical harmonic transforms on CUDA."""
 
-npix = 12 * nside**2
-signal = torch.randn(m, n, npix, dtype=torch.float32).to(device)
+    @pytest.fixture
+    def batch_dims(self):
+        """Return batch dimensions (m, n) for testing."""
+        return (2, 3)
 
-quad_weights = 'ring'
-lmax = 2 * nside + 1
-mmax = lmax
+    @pytest.fixture
+    def batch_signal(self, device, nside, batch_dims, dtype):
+        """Create a batched random signal on device."""
+        m, n = batch_dims
+        npix = 12 * nside**2
+        return torch.randn(m, n, npix, dtype=dtype, device=device)
 
-sht = SHTCUDA(nside, lmax=lmax, mmax=mmax, quad_weights=quad_weights)
-isht = iSHTCUDA(nside, lmax=lmax, mmax=mmax)
+    @pytest.fixture
+    def sht(self, nside, lmax, mmax):
+        """Create SHT transform."""
+        return SHTCUDA(nside, lmax=lmax, mmax=mmax, quad_weights="ring")
 
-coeff = sht(signal)
-c = torch.zeros_like(coeff)
+    @pytest.fixture
+    def isht(self, nside, lmax, mmax):
+        """Create iSHT transform."""
+        return iSHTCUDA(nside, lmax=lmax, mmax=mmax)
 
-for i in range(m):
-    for j in range(n):
-        c[i, j, :] = sht(signal[i, j, :])
+    def test_sht_batch_matches_single(self, device, nside, batch_signal, sht, batch_dims, dtype):
+        """Test that batched SHT matches element-wise SHT."""
+        m, n = batch_dims
 
-diff = (coeff - c).abs()
-print('diff between batch and single, sht', torch.sqrt(torch.mean(diff.abs() ** 2)))
+        # Batched transform
+        coeff_batch = sht(batch_signal)
 
-s1 = isht(coeff)
-s2 = torch.zeros_like(s1)
+        # Element-wise transform
+        coeff_single = torch.zeros_like(coeff_batch)
+        for i in range(m):
+            for j in range(n):
+                coeff_single[i, j, :] = sht(batch_signal[i, j, :])
 
-for i in range(m):
-    for j in range(n):
-        s2[i, j, :] = isht(coeff[i, j, :])
+        # Compare results - should be identical
+        # Use tighter tolerances for float64
+        rtol = 1e-5 if dtype == torch.float32 else 1e-10
+        atol = 1e-6 if dtype == torch.float32 else 1e-10
+        assert torch.allclose(
+            coeff_batch, coeff_single, rtol=rtol, atol=atol
+        ), f"SHT batch/single mismatch: max diff = {(coeff_batch - coeff_single).abs().max():.2e}"
 
-diff = s1 - s2
-print('diff between batch and single, isht', torch.sqrt(torch.mean(diff.abs() ** 2)))
+    def test_isht_batch_matches_single(self, device, nside, batch_signal, sht, isht, batch_dims, dtype):
+        """Test that batched iSHT matches element-wise iSHT."""
+        m, n = batch_dims
+
+        # Get coefficients first
+        coeff = sht(batch_signal)
+
+        # Batched inverse transform
+        signal_batch = isht(coeff)
+
+        # Element-wise inverse transform
+        signal_single = torch.zeros_like(signal_batch)
+        for i in range(m):
+            for j in range(n):
+                signal_single[i, j, :] = isht(coeff[i, j, :])
+
+        # Compare results - should be identical
+        # Use tighter tolerances for float64
+        rtol = 1e-5 if dtype == torch.float32 else 1e-10
+        atol = 1e-6 if dtype == torch.float32 else 1e-10
+        assert torch.allclose(
+            signal_batch, signal_single, rtol=rtol, atol=atol
+        ), f"iSHT batch/single mismatch: max diff = {(signal_batch - signal_single).abs().max():.2e}"
+
+    @pytest.mark.parametrize("batch_shape", [(4,), (2, 2), (2, 2, 2)])
+    def test_various_batch_shapes(self, device, nside_small, batch_shape, dtype):
+        """Test batched SHT with various batch dimensions."""
+        npix = 12 * nside_small**2
+        lmax = 3 * nside_small - 1
+        mmax = lmax
+
+        signal = torch.randn(*batch_shape, npix, dtype=dtype, device=device)
+
+        sht = SHTCUDA(nside_small, lmax=lmax, mmax=mmax, quad_weights="ring")
+        isht = iSHTCUDA(nside_small, lmax=lmax, mmax=mmax)
+
+        # Forward transform
+        coeff = sht(signal)
+        assert coeff.shape[:-2] == batch_shape, f"Expected batch shape {batch_shape}, got {coeff.shape[:-2]}"
+
+        # Inverse transform
+        signal_back = isht(coeff)
+        assert signal_back.shape == signal.shape, f"Shape mismatch: {signal_back.shape} vs {signal.shape}"

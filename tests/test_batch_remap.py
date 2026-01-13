@@ -13,27 +13,65 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for batched remapping operations."""
+
+import pytest
 import torch
 
 import cuhpx
 
-# Check if CUDA is available
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-nside = int(input('nside: '))
-m = int(input('m: '))
-n = int(input('n: '))
+@pytest.mark.cuda
+def test_batched_ring2nest_matches_single(device, nside):
+    """Test that batched ring2nest produces same results as individual operations."""
+    npix = 12 * nside**2
+    m, n = 4, 8
+    signal = torch.randn(m, n, npix, dtype=torch.float32, device=device)
 
-npix = 12 * nside**2
-signal = torch.randn((m, n, npix), dtype=torch.float32).to(device)
+    # Batched operation
+    result_batch = cuhpx.ring2nest(signal, nside)
 
-signal_dest = cuhpx.ring2nest(signal, nside)
+    # Single operations
+    result_single = torch.zeros_like(result_batch)
+    for i in range(m):
+        for j in range(n):
+            result_single[i, j, :] = cuhpx.ring2nest(signal[i, j, :], nside)
 
-signal_1by1 = torch.zeros((m, n, npix), dtype=torch.float32).to(device)
-
-for i in range(m):
-    for j in range(n):
-        signal_1by1[i, j, :] = cuhpx.ring2nest(signal[i, j, :], nside)
+    assert torch.equal(
+        result_batch, result_single
+    ), f"Batched ring2nest doesn't match single operations for nside={nside}"
 
 
-print("whether batch and one by one the same: ", torch.equal(signal_dest, signal_1by1))
+@pytest.mark.cuda
+def test_batched_nest2ring_matches_single(device, nside):
+    """Test that batched nest2ring produces same results as individual operations."""
+    npix = 12 * nside**2
+    m, n = 4, 8
+    signal = torch.randn(m, n, npix, dtype=torch.float32, device=device)
+
+    # Batched operation
+    result_batch = cuhpx.nest2ring(signal, nside)
+
+    # Single operations
+    result_single = torch.zeros_like(result_batch)
+    for i in range(m):
+        for j in range(n):
+            result_single[i, j, :] = cuhpx.nest2ring(signal[i, j, :], nside)
+
+    assert torch.equal(
+        result_batch, result_single
+    ), f"Batched nest2ring doesn't match single operations for nside={nside}"
+
+
+@pytest.mark.cuda
+@pytest.mark.parametrize("batch_shape", [(2,), (3, 4), (2, 3, 5)])
+def test_batched_remap_various_shapes(device, nside, batch_shape):
+    """Test batched remapping with various batch dimensions."""
+    npix = 12 * nside**2
+    signal = torch.randn(*batch_shape, npix, dtype=torch.float32, device=device)
+
+    # Round trip should recover original
+    nested = cuhpx.ring2nest(signal, nside)
+    recovered = cuhpx.nest2ring(nested, nside)
+
+    assert torch.equal(signal, recovered), f"Round-trip failed for batch_shape={batch_shape}, nside={nside}"
