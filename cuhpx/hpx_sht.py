@@ -35,7 +35,6 @@ from . import cuhpx_fft
 
 
 def healpix_rfft_torch(f: torch.tensor, L: int, nside: int) -> torch.tensor:
-
     index = 0
     ctype = torch.complex64 if f.dtype == torch.float32 else torch.complex128
     ftm = torch.zeros(ftm_shape(L, "healpix", nside), dtype=ctype, device=f.device)
@@ -56,13 +55,11 @@ def healpix_rfft_torch(f: torch.tensor, L: int, nside: int) -> torch.tensor:
 
 
 def healpix_irfft_torch(ftm: torch.tensor, L: int, nside: int) -> torch.tensor:
-
     ftype = torch.float if ftm.dtype == torch.complex64 else torch.double
     f = torch.zeros(f_shape(sampling="healpix", nside=nside), dtype=ftype, device=ftm.device)
     ntheta = ftm.shape[0]
     index = 0
     for t in range(ntheta):
-
         phi_ring_offset = p2phi_ring(t, 0, nside)
         phase_shift = torch.exp(1j * torch.arange(L, device=ftm.device) * phi_ring_offset)
         ftm[t, :] *= phase_shift
@@ -77,7 +74,6 @@ def healpix_irfft_torch(ftm: torch.tensor, L: int, nside: int) -> torch.tensor:
 
 
 def healpix_irfft_bluestein(ftm: torch.tensor, L: int, nside: int) -> torch.tensor:
-
     f = torch.zeros(12 * nside**2, dtype=torch.double, device=ftm.device)
 
     ntheta = ftm.shape[0]
@@ -126,7 +122,6 @@ def healpix_irfft_bluestein(ftm: torch.tensor, L: int, nside: int) -> torch.tens
 
 
 def healpix_rfft_bluestein(f: torch.tensor, L: int, nside: int) -> torch.tensor:
-
     ftm = torch.zeros((4 * nside - 1, L), dtype=torch.complex128, device=f.device)
     ntheta = ftm.shape[0]
 
@@ -171,7 +166,6 @@ def healpix_rfft_bluestein(f: torch.tensor, L: int, nside: int) -> torch.tensor:
 
 
 class SHT(nn.Module):
-
     def __init__(
         self,
         nside,
@@ -183,7 +177,6 @@ class SHT(nn.Module):
         csphase=True,
         use_bluestein=False,
     ):
-
         super().__init__()
 
         self.nside = nside
@@ -208,11 +201,10 @@ class SHT(nn.Module):
         pct = _precompute_legpoly(self.mmax, self.lmax, tq, norm=self.norm, csphase=self.csphase)
         pct = torch.from_numpy(pct)
 
-        weights = torch.einsum('mlk,k->mlk', pct, weights)
-        self.register_buffer('weights', weights, persistent=False)
+        weights = torch.einsum("mlk,k->mlk", pct, weights)
+        self.register_buffer("weights", weights, persistent=False)
 
     def forward(self, x: torch.Tensor):
-
         if torch.is_complex(x):
             raise ValueError("Input tensor must be real.")
 
@@ -229,17 +221,15 @@ class SHT(nn.Module):
         xout = torch.zeros(out_shape, dtype=x.dtype, device=x.device)
 
         # contraction
-        xout[..., 0] = torch.einsum('...km,mlk->...lm', x[..., : self.mmax, 0], self.weights.to(x.dtype))
-        xout[..., 1] = torch.einsum('...km,mlk->...lm', x[..., : self.mmax, 1], self.weights.to(x.dtype))
+        xout[..., 0] = torch.einsum("...km,mlk->...lm", x[..., : self.mmax, 0], self.weights.to(x.dtype))
+        xout[..., 1] = torch.einsum("...km,mlk->...lm", x[..., : self.mmax, 1], self.weights.to(x.dtype))
         x = torch.view_as_complex(xout)
 
         return x
 
 
 class iSHT(nn.Module):
-
     def __init__(self, nside, lmax=None, mmax=None, grid="healpix", norm="ortho", csphase=True, use_bluestein=False):
-
         super().__init__()
 
         self.nside = nside
@@ -252,7 +242,7 @@ class iSHT(nn.Module):
         self.use_bluestein = use_bluestein
 
         if self.grid == "healpix":
-            cost, _ = healpix_weights(nside, 'none')
+            cost, _ = healpix_weights(nside, "none")
             self.lmax = lmax or self.nlat
         else:
             raise (ValueError("Unknown quadrature mode"))
@@ -263,14 +253,13 @@ class iSHT(nn.Module):
         pct = _precompute_legpoly(self.mmax, self.lmax, t, norm=self.norm, inverse=True, csphase=self.csphase)
         pct = torch.from_numpy(pct)
 
-        self.register_buffer('pct', pct, persistent=False)
+        self.register_buffer("pct", pct, persistent=False)
 
     def forward(self, x: torch.Tensor):
-
         x = torch.view_as_real(x)
 
-        rl = torch.einsum('...lm, mlk->...km', x[..., 0], self.pct.to(x.dtype))
-        im = torch.einsum('...lm, mlk->...km', x[..., 1], self.pct.to(x.dtype))
+        rl = torch.einsum("...lm, mlk->...km", x[..., 0], self.pct.to(x.dtype))
+        im = torch.einsum("...lm, mlk->...km", x[..., 1], self.pct.to(x.dtype))
         xs = torch.stack((rl, im), -1)
 
         x = torch.view_as_complex(xs)
@@ -284,7 +273,6 @@ class iSHT(nn.Module):
 
 
 class VectorSHT(nn.Module):
-
     def __init__(
         self,
         nside,
@@ -296,7 +284,6 @@ class VectorSHT(nn.Module):
         csphase=True,
         use_bluestein=False,
     ):
-
         super().__init__()
 
         self.nside = nside
@@ -325,14 +312,13 @@ class VectorSHT(nn.Module):
         l = torch.arange(0, self.lmax)  # noqa: E741
         norm_factor = 1.0 / l / (l + 1)
         norm_factor[0] = 1.0
-        weights = torch.einsum('dmlk,k,l->dmlk', dpct, weights, norm_factor)
+        weights = torch.einsum("dmlk,k,l->dmlk", dpct, weights, norm_factor)
 
         weights[1] = -1 * weights[1]
 
-        self.register_buffer('weights', weights, persistent=False)
+        self.register_buffer("weights", weights, persistent=False)
 
     def forward(self, x: torch.Tensor):
-
         if torch.is_complex(x):
             raise ValueError("Input tensor must be real.")
 
@@ -353,31 +339,29 @@ class VectorSHT(nn.Module):
         # contraction - spheroidal component
         # real component
         xout[..., 0, :, :, 0] = torch.einsum(
-            '...km,mlk->...lm', x[..., 0, :, : self.mmax, 0], self.weights[0].to(x.dtype)
-        ) - torch.einsum('...km,mlk->...lm', x[..., 1, :, : self.mmax, 1], self.weights[1].to(x.dtype))
+            "...km,mlk->...lm", x[..., 0, :, : self.mmax, 0], self.weights[0].to(x.dtype)
+        ) - torch.einsum("...km,mlk->...lm", x[..., 1, :, : self.mmax, 1], self.weights[1].to(x.dtype))
 
         # iamg component
         xout[..., 0, :, :, 1] = torch.einsum(
-            '...km,mlk->...lm', x[..., 0, :, : self.mmax, 1], self.weights[0].to(x.dtype)
-        ) + torch.einsum('...km,mlk->...lm', x[..., 1, :, : self.mmax, 0], self.weights[1].to(x.dtype))
+            "...km,mlk->...lm", x[..., 0, :, : self.mmax, 1], self.weights[0].to(x.dtype)
+        ) + torch.einsum("...km,mlk->...lm", x[..., 1, :, : self.mmax, 0], self.weights[1].to(x.dtype))
 
         # contraction - toroidal component
         # real component
         xout[..., 1, :, :, 0] = -torch.einsum(
-            '...km,mlk->...lm', x[..., 0, :, : self.mmax, 1], self.weights[1].to(x.dtype)
-        ) - torch.einsum('...km,mlk->...lm', x[..., 1, :, : self.mmax, 0], self.weights[0].to(x.dtype))
+            "...km,mlk->...lm", x[..., 0, :, : self.mmax, 1], self.weights[1].to(x.dtype)
+        ) - torch.einsum("...km,mlk->...lm", x[..., 1, :, : self.mmax, 0], self.weights[0].to(x.dtype))
         # imag component
         xout[..., 1, :, :, 1] = torch.einsum(
-            '...km,mlk->...lm', x[..., 0, :, : self.mmax, 0], self.weights[1].to(x.dtype)
-        ) - torch.einsum('...km,mlk->...lm', x[..., 1, :, : self.mmax, 1], self.weights[0].to(x.dtype))
+            "...km,mlk->...lm", x[..., 0, :, : self.mmax, 0], self.weights[1].to(x.dtype)
+        ) - torch.einsum("...km,mlk->...lm", x[..., 1, :, : self.mmax, 1], self.weights[0].to(x.dtype))
 
         return torch.view_as_complex(xout)
 
 
 class VectoriSHT(nn.Module):
-
     def __init__(self, nside, lmax=None, mmax=None, grid="healpix", norm="ortho", csphase=True, use_bluestein=False):
-
         super().__init__()
 
         self.nside = nside
@@ -390,7 +374,7 @@ class VectoriSHT(nn.Module):
         self.use_bluestein = use_bluestein
 
         if self.grid == "healpix":
-            cost, _ = healpix_weights(nside, 'none')
+            cost, _ = healpix_weights(nside, "none")
             self.lmax = lmax or self.nlat
         else:
             raise (ValueError("Unknown quadrature mode"))
@@ -401,30 +385,29 @@ class VectoriSHT(nn.Module):
         dpct = _precompute_dlegpoly(self.mmax, self.lmax, t, norm=self.norm, inverse=True, csphase=self.csphase)
         dpct = torch.from_numpy(dpct)
 
-        self.register_buffer('dpct', dpct, persistent=False)
+        self.register_buffer("dpct", dpct, persistent=False)
 
     def forward(self, x: torch.Tensor):
-
         x = torch.view_as_real(x)
 
         # contraction - spheroidal component
         # real component
-        srl = torch.einsum('...lm,mlk->...km', x[..., 0, :, :, 0], self.dpct[0].to(x.dtype)) - torch.einsum(
-            '...lm,mlk->...km', x[..., 1, :, :, 1], self.dpct[1].to(x.dtype)
+        srl = torch.einsum("...lm,mlk->...km", x[..., 0, :, :, 0], self.dpct[0].to(x.dtype)) - torch.einsum(
+            "...lm,mlk->...km", x[..., 1, :, :, 1], self.dpct[1].to(x.dtype)
         )
         # iamg component
-        sim = torch.einsum('...lm,mlk->...km', x[..., 0, :, :, 1], self.dpct[0].to(x.dtype)) + torch.einsum(
-            '...lm,mlk->...km', x[..., 1, :, :, 0], self.dpct[1].to(x.dtype)
+        sim = torch.einsum("...lm,mlk->...km", x[..., 0, :, :, 1], self.dpct[0].to(x.dtype)) + torch.einsum(
+            "...lm,mlk->...km", x[..., 1, :, :, 0], self.dpct[1].to(x.dtype)
         )
 
         # contraction - toroidal component
         # real component
-        trl = -torch.einsum('...lm,mlk->...km', x[..., 0, :, :, 1], self.dpct[1].to(x.dtype)) - torch.einsum(
-            '...lm,mlk->...km', x[..., 1, :, :, 0], self.dpct[0].to(x.dtype)
+        trl = -torch.einsum("...lm,mlk->...km", x[..., 0, :, :, 1], self.dpct[1].to(x.dtype)) - torch.einsum(
+            "...lm,mlk->...km", x[..., 1, :, :, 0], self.dpct[0].to(x.dtype)
         )
         # imag component
-        tim = torch.einsum('...lm,mlk->...km', x[..., 0, :, :, 0], self.dpct[1].to(x.dtype)) - torch.einsum(
-            '...lm,mlk->...km', x[..., 1, :, :, 1], self.dpct[0].to(x.dtype)
+        tim = torch.einsum("...lm,mlk->...km", x[..., 0, :, :, 0], self.dpct[1].to(x.dtype)) - torch.einsum(
+            "...lm,mlk->...km", x[..., 1, :, :, 1], self.dpct[0].to(x.dtype)
         )
 
         # reassemble
@@ -445,7 +428,6 @@ class VectoriSHT(nn.Module):
 
 
 def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
-
     device = torch.device("cuda")
     chunk_size = int(weights.size(1) / nchunk + 1)  # Adjust this based on your memory constraints
 
@@ -461,7 +443,6 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
     torch.cuda.current_stream().synchronize()
 
     for i in range(0, weights.size(1), chunk_size):
-
         start_i, end_i = i, min(i + chunk_size, weights.size(1))
         actual_chunk_size = end_i - start_i
 
@@ -478,7 +459,7 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
             event_transfer.record(stream1)
 
         xout[..., start_j:end_j, :, :] = torch.einsum(
-            '...kmn,mlk->...lmn', x, current_chunk[:, : end_j - start_j, :].to(x.dtype)
+            "...kmn,mlk->...lmn", x, current_chunk[:, : end_j - start_j, :].to(x.dtype)
         )
 
         event_computation.record(torch.cuda.current_stream())
@@ -489,7 +470,7 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
 
     if start_i < weights.size(1):
         xout[..., start_i:end_i, :, :] = torch.einsum(
-            '...kmn,mlk->...lmn', x, current_chunk[:, : end_i - start_i, :].to(x.dtype)
+            "...kmn,mlk->...lmn", x, current_chunk[:, : end_i - start_i, :].to(x.dtype)
         )
 
     stream1.synchronize()
@@ -499,11 +480,10 @@ def einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1):
 
 
 class SHTFunction(Function):
-
     @staticmethod
-    def forward(ctx, x, weights, pct, W, mmax, lmax, nside):
-
+    def forward(ctx, x, pct_weights, pct, W, mmax, lmax, nside):
         # Init
+        # pct_weights is pre-computed (pct * weights) for CUDA graph compatibility
         ctx.save_for_backward(pct, W)
         ctx.mmax = mmax
         ctx.lmax = lmax
@@ -517,20 +497,17 @@ class SHTFunction(Function):
 
         x = torch.view_as_real(x)
 
-        out_shape = list(x.size())
-        out_shape[-3] = lmax
-        out_shape[-2] = mmax
-
-        xout = torch.zeros(out_shape, dtype=x.dtype, device=x.device)
-
-        weights = pct * weights
-
+        # Use einsum directly with pre-computed weights (no allocation for weights)
         if not pct.is_cuda:
+            out_shape = list(x.size())
+            out_shape[-3] = lmax
+            out_shape[-2] = mmax
+            xout = torch.zeros(out_shape, dtype=x.dtype, device=x.device)
             nchunk = 12
             stream1 = torch.cuda.Stream()
-            xout = einsum_with_chunking(x, weights, mmax, xout, nchunk, stream1)
+            xout = einsum_with_chunking(x, pct_weights, mmax, xout, nchunk, stream1)
         else:
-            xout = torch.einsum('...kmn,mlk->...lmn', x, weights.to(x.dtype))
+            xout = torch.einsum("...kmn,mlk->...lmn", x, pct_weights)
 
         x = torch.view_as_complex(xout.contiguous())
 
@@ -538,14 +515,13 @@ class SHTFunction(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-
         # adjoint iSHT
         pct, W = ctx.saved_tensors
         mmax, nside = ctx.mmax, ctx.nside
 
         x = torch.view_as_real(grad_output)
 
-        xs = torch.einsum('...lmn, mlk->...kmn', x, pct.to(x.dtype))
+        xs = torch.einsum("...lmn, mlk->...kmn", x, pct.to(x.dtype))
         grad_input = torch.view_as_complex(xs.contiguous())
 
         if grad_input.dim() == 2:
@@ -559,18 +535,19 @@ class SHTFunction(Function):
 
 
 class iSHTFunction(Function):
-
     @staticmethod
-    def forward(ctx, x, weights, pct, W, mmax, lmax, nside):
-
-        ctx.save_for_backward(weights, pct, W)
+    def forward(ctx, x, pct_weights, pct, W, mmax, lmax, nside):
+        # pct_weights is pre-computed (pct * weights) for backward pass
+        # pct is pre-computed in correct dtype for CUDA graph compatibility
+        ctx.save_for_backward(pct_weights, pct, W)
         ctx.mmax = mmax
         ctx.lmax = lmax
         ctx.nside = nside
 
         x = torch.view_as_real(x)
 
-        xs = torch.einsum('...lmn, mlk->...kmn', x, pct.to(x.dtype))
+        # pct is already in correct dtype, no conversion needed
+        xs = torch.einsum("...lmn, mlk->...kmn", x, pct)
 
         x = torch.view_as_complex(xs.contiguous())
 
@@ -583,10 +560,9 @@ class iSHTFunction(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-
         # adjoint SHT
-        weights, pct, W = ctx.saved_tensors
-        mmax, lmax, nside = ctx.mmax, ctx.lmax, ctx.nside
+        pct_weights, pct, W = ctx.saved_tensors
+        mmax, _lmax, nside = ctx.mmax, ctx.lmax, ctx.nside
 
         x = grad_output / W.to(grad_output.dtype)
 
@@ -597,16 +573,8 @@ class iSHTFunction(Function):
 
         x = torch.view_as_real(x)
 
-        out_shape = list(x.size())
-        out_shape[-3] = lmax
-        out_shape[-2] = mmax
-
-        xout = torch.zeros(out_shape, dtype=x.dtype, device=x.device)
-
-        weights = pct * weights
-        weights = weights.to(x.device)
-
-        xout = torch.einsum('...kmn,mlk->...lmn', x, weights.to(x.dtype))
+        # Use pre-computed pct_weights directly (no allocation)
+        xout = torch.einsum("...kmn,mlk->...lmn", x, pct_weights)
         grad_input = torch.view_as_complex(xout.contiguous())
 
         return grad_input, None, None, None, None, None, None
@@ -614,7 +582,6 @@ class iSHTFunction(Function):
 
 class SHTCUDA(nn.Module):
     def __init__(self, nside, lmax=None, mmax=None, quad_weights="ring", norm="ortho", csphase=True):
-
         super().__init__()
         self.nside = nside
         self.norm = norm
@@ -629,7 +596,7 @@ class SHTCUDA(nn.Module):
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA device is not available. This class requires a GPU.")
 
-        self.device = torch.device('cuda')
+        self.device = torch.device("cuda")
 
         # quadrature weights
         cost, w = healpix_weights(nside, self.quad_weights)
@@ -649,23 +616,30 @@ class SHTCUDA(nn.Module):
         W = W_helper(w, nside)
         W = W.to(torch.float).to(self.device)
 
-        self.register_buffer('weights', weights, persistent=False)
-        self.register_buffer('pct', pct, persistent=False)
-        self.register_buffer('W', W, persistent=False)
+        self.register_buffer("weights", weights, persistent=False)
+        self.register_buffer("pct", pct, persistent=False)
+        self.register_buffer("W", W, persistent=False)
+
+        # Pre-compute pct * weights for CUDA graph compatibility (avoids allocation during forward)
+        pct_weights = pct * weights
+        pct_weights_f64 = pct_weights.double()
+        self.register_buffer("pct_weights", pct_weights, persistent=False)
+        self.register_buffer("pct_weights_f64", pct_weights_f64, persistent=False)
 
     def forward(self, x):
-
         if torch.is_complex(x):
             raise ValueError("Input tensor must be real.")
 
-        with torch.cuda.stream(self.stream):
-            return SHTFunction.apply(x, self.weights, self.pct, self.W, self.mmax, self.lmax, self.nside)
+        # Use pre-computed weights based on input dtype for CUDA graph compatibility
+        # Note: No stream context manager - runs on caller's stream (required for CUDA graph capture)
+        if x.dtype == torch.float64:
+            return SHTFunction.apply(x, self.pct_weights_f64, self.pct, self.W, self.mmax, self.lmax, self.nside)
+        else:
+            return SHTFunction.apply(x, self.pct_weights, self.pct, self.W, self.mmax, self.lmax, self.nside)
 
 
 class iSHTCUDA(nn.Module):
-
     def __init__(self, nside, lmax=None, mmax=None, quad_weights="ring", norm="ortho", csphase=True):
-
         super().__init__()
         self.nside = nside
         self.norm = norm
@@ -675,12 +649,11 @@ class iSHTCUDA(nn.Module):
         self.quad_weights = quad_weights
         self.lmax = lmax or self.nlat
         self.mmax = mmax or (self.nlon // 2 + 1)
-        self.stream = torch.cuda.current_stream()
 
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA device is not available. This class requires a GPU.")
 
-        self.device = torch.device('cuda')
+        self.device = torch.device("cuda")
 
         # quadrature weights
         cost, w = healpix_weights(nside, self.quad_weights)
@@ -696,11 +669,24 @@ class iSHTCUDA(nn.Module):
         W = W_helper(w, nside)
         W = W.to(torch.float).to(self.device)
 
-        self.register_buffer('weights', weights, persistent=False)
-        self.register_buffer('pct', pct, persistent=False)
-        self.register_buffer('W', W, persistent=False)
+        self.register_buffer("weights", weights, persistent=False)
+        self.register_buffer("pct", pct, persistent=False)
+        self.register_buffer("W", W, persistent=False)
+
+        # Pre-compute pct in both dtypes for CUDA graph compatibility
+        pct_f64 = pct.double()
+        self.register_buffer("pct_f64", pct_f64, persistent=False)
+
+        # Pre-compute pct * weights for backward pass (adjoint SHT)
+        pct_weights = pct * weights
+        pct_weights_f64 = pct_weights.double()
+        self.register_buffer("pct_weights", pct_weights, persistent=False)
+        self.register_buffer("pct_weights_f64", pct_weights_f64, persistent=False)
 
     def forward(self, x):
-
-        with torch.cuda.stream(self.stream):
-            return iSHTFunction.apply(x, self.weights, self.pct, self.W, self.mmax, self.lmax, self.nside)
+        # Use pre-computed pct based on input dtype for CUDA graph compatibility
+        # Note: No stream context manager - runs on caller's stream (required for CUDA graph capture)
+        if x.real.dtype == torch.float64:
+            return iSHTFunction.apply(x, self.pct_weights_f64, self.pct_f64, self.W, self.mmax, self.lmax, self.nside)
+        else:
+            return iSHTFunction.apply(x, self.pct_weights, self.pct, self.W, self.mmax, self.lmax, self.nside)

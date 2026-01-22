@@ -69,8 +69,8 @@ void rfft_pre_process_x_pad_batch_float4_dispatch(torch::Tensor x_pad, torch::Te
 class HealpixFFT{
 public:
     // Constructor initializes only the essential variables and FFT plan
-    HealpixFFT(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream& stream)
-        : ntheta_(ntheta), n_(n), padding_(padding), dtype_(dtype), device_(device), y_pad_initialized_(false), stream_(stream){
+    HealpixFFT(int ntheta, int n, int padding, int L, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream stream)
+        : ntheta_(ntheta), n_(n), padding_(padding), L_(L), dtype_(dtype), device_(device), y_pad_initialized_(false), stream_(stream){
 
         if (dtype == torch::kComplexDouble) {
             checkCuFFTError(cufftPlan1d(&plan_, padding_, CUFFT_Z2Z, ntheta_ * n));
@@ -85,6 +85,10 @@ public:
 
         // Allocate memory for y_pad tensor
         y_pad_ = torch::zeros({ntheta, padding}, torch::dtype(dtype).device(device));
+
+        // Pre-allocate workspace buffers for CUDA graph compatibility
+        x_pad_ = torch::empty({ntheta * n, padding}, torch::dtype(dtype).device(device));
+        ftm_ = torch::empty({ntheta * n, L}, torch::dtype(dtype).device(device));
     }
 
     ~HealpixFFT() {
@@ -125,12 +129,13 @@ public:
     }
 
     // Method to check if reconfiguration is needed
-    bool needsReconfiguration(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device) const {
-        return ntheta_ != ntheta || n_ != n || padding_ != padding || dtype_ != dtype || device_ != device;
+    // Only reconfigure when batch grows larger (n > n_) or other config changes
+    bool needsReconfiguration(int ntheta, int n, int padding, int L, torch::Dtype dtype, torch::Device device) const {
+        return ntheta_ != ntheta || n_ < n || padding_ != padding || L_ != L || dtype_ != dtype || device_ != device;
     }
 
     // Method to check and update the stream (non-const)
-    void updateStreamIfNeeded(at::cuda::CUDAStream& stream) {
+    void updateStreamIfNeeded(at::cuda::CUDAStream stream) {
 
         // Set the plan to the new stream
         checkCuFFTError(cufftSetStream(plan_, stream.stream()));
@@ -141,19 +146,28 @@ public:
     // Getters for current configuration
     int getNtheta() const { return ntheta_; }
     int getPadding() const { return padding_; }
+    int getL() const { return L_; }
+    int getN() const { return n_; }
     torch::Dtype getDtype() const { return dtype_; }
     torch::Device getDevice() const { return device_; }
+
+    // Accessors for pre-allocated buffers
+    torch::Tensor& getXpad() { return x_pad_; }
+    torch::Tensor& getFtm() { return ftm_; }
 
 private:
     cufftHandle plan_;
     int ntheta_;
     int n_;
     int padding_;
+    int L_;
     torch::Dtype dtype_;
     torch::Device device_;
     torch::Tensor y_pad_;
+    torch::Tensor x_pad_;
+    torch::Tensor ftm_;
     bool y_pad_initialized_;
-    at::cuda::CUDAStream& stream_;
+    at::cuda::CUDAStream stream_;
 
     void checkCuFFTError(cufftResult result) {
         if (result != CUFFT_SUCCESS) {
@@ -165,8 +179,8 @@ private:
 
 class HealpixIFFT {
 public:
-    HealpixIFFT(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream& stream)
-        : ntheta_(ntheta), n_(n), padding_(padding), dtype_(dtype), device_(device), y_pad_initialized_(false), stream_(stream){
+    HealpixIFFT(int ntheta, int n, int padding, int nside, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream stream)
+        : ntheta_(ntheta), n_(n), padding_(padding), nside_(nside), dtype_(dtype), device_(device), y_pad_initialized_(false), stream_(stream){
 
         if (dtype == torch::kComplexDouble) {
             checkCuFFTError(cufftPlan1d(&plan_, padding_, CUFFT_Z2Z, ntheta_ * n));
@@ -180,6 +194,14 @@ public:
         checkCuFFTError(cufftSetStream(plan_, stream_.stream()));
 
         y_pad_ = torch::zeros({ntheta, padding}, torch::dtype(dtype).device(device));
+
+        // Pre-allocate workspace buffers for CUDA graph compatibility
+        x_pad_ = torch::empty({ntheta * n, padding}, torch::dtype(dtype).device(device));
+
+        // Output tensor type is real (not complex)
+        auto ftype = dtype == torch::kComplexDouble ? torch::kDouble : torch::kFloat;
+        int npix = 12 * nside * nside;
+        f_ = torch::empty({n, npix}, torch::dtype(ftype).device(device));
     }
 
     ~HealpixIFFT() {
@@ -219,12 +241,13 @@ public:
     }
 
     // Method to check if reconfiguration is needed
-    bool needsReconfiguration(int ntheta, int n, int padding, torch::Dtype dtype, torch::Device device) const {
-        return ntheta_ != ntheta || n_ != n || padding_ != padding || dtype_ != dtype || device_ != device;
+    // Only reconfigure when batch grows larger (n > n_) or other config changes
+    bool needsReconfiguration(int ntheta, int n, int padding, int nside, torch::Dtype dtype, torch::Device device) const {
+        return ntheta_ != ntheta || n_ < n || padding_ != padding || nside_ != nside || dtype_ != dtype || device_ != device;
     }
 
     // Method to check and update the stream (non-const)
-    void updateStreamIfNeeded(at::cuda::CUDAStream& stream) {
+    void updateStreamIfNeeded(at::cuda::CUDAStream stream) {
         // Set the plan to the new stream
         checkCuFFTError(cufftSetStream(plan_, stream.stream()));
         stream_ = stream;
@@ -233,19 +256,28 @@ public:
     // Getters for current configuration
     int getNtheta() const { return ntheta_; }
     int getPadding() const { return padding_; }
+    int getNside() const { return nside_; }
+    int getN() const { return n_; }
     torch::Dtype getDtype() const { return dtype_; }
     torch::Device getDevice() const { return device_; }
+
+    // Accessors for pre-allocated buffers
+    torch::Tensor& getXpad() { return x_pad_; }
+    torch::Tensor& getF() { return f_; }
 
 private:
     cufftHandle plan_;
     int ntheta_;
     int n_;
     int padding_;
+    int nside_;
     torch::Dtype dtype_;
     torch::Device device_;
     torch::Tensor y_pad_;
+    torch::Tensor x_pad_;
+    torch::Tensor f_;
     bool y_pad_initialized_;
-    at::cuda::CUDAStream& stream_;
+    at::cuda::CUDAStream stream_;
 
     void checkCuFFTError(cufftResult result) {
         if (result != CUFFT_SUCCESS) {

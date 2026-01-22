@@ -47,10 +47,10 @@ torch::Tensor healpix_rfft_batch(torch::Tensor f, int L, int nside) {
 
     // Create FFT object and initialize y_pad if not already done
     static HealpixFFT* fft = nullptr;
-    if (!fft || fft->needsReconfiguration(ntheta, n, padding, dtype, device)) {
+    if (!fft || fft->needsReconfiguration(ntheta, n, padding, L, dtype, device)) {
 
         delete fft; // Properly deallocate existing object
-        fft = new HealpixFFT(ntheta, n, padding, dtype, device, stream);
+        fft = new HealpixFFT(ntheta, n, padding, L, dtype, device, stream);
     } else {
         // If reconfiguration is not needed, ensure the stream is up-to-date
         fft->updateStreamIfNeeded(stream);
@@ -65,14 +65,23 @@ torch::Tensor healpix_rfft_batch(torch::Tensor f, int L, int nside) {
     x_pad_size.push_back(ntheta);
     x_pad_size.push_back(padding);
 
-    auto ftm = torch::zeros(ftm_size, torch::dtype(dtype).device(device));
-    auto x_pad = torch::zeros(x_pad_size, torch::dtype(dtype).device(device));
+    // Use pre-allocated buffers and zero in-place (CUDA graph compatible)
+    torch::Tensor& x_pad_storage = fft->getXpad();
+    torch::Tensor& ftm_storage = fft->getFtm();
+
+    // Zero in-place - this is CUDA graph compatible
+    x_pad_storage.zero_();
+    ftm_storage.zero_();
+
+    // Create views with proper batch shape (slice for smaller batches)
+    auto x_pad = x_pad_storage.slice(0, 0, n * ntheta).view(x_pad_size);
+    auto ftm = ftm_storage.slice(0, 0, n * ntheta).view(ftm_size);
 
     rfft_pre_process_x_pad_batch_dispatch(x_pad, f, padding, nside, order, stream);
 
     fft->execute_forward(x_pad);
 
-    x_pad = x_pad * fft->getYpad();
+    x_pad.mul_(fft->getYpad());
 
     fft->execute_inverse(x_pad);
 
@@ -118,27 +127,35 @@ torch::Tensor healpix_irfft_batch(torch::Tensor ftm, int L, int nside) {
     x_pad_size.push_back(ntheta);
     x_pad_size.push_back(padding);
 
-    auto f = torch::zeros(f_size, torch::dtype(ftype).device(device));
-    auto x_pad = torch::zeros(x_pad_size, torch::dtype(dtype).device(device));
-
     // Instantiate FFT object
     static HealpixIFFT* ifft = nullptr;
-    if (!ifft || ifft->needsReconfiguration(ntheta, n, padding, dtype, device)) {
+    if (!ifft || ifft->needsReconfiguration(ntheta, n, padding, nside, dtype, device)) {
         delete ifft; // Properly deallocate existing object
-        ifft = new HealpixIFFT(ntheta, n, padding, dtype, device, stream);
+        ifft = new HealpixIFFT(ntheta, n, padding, nside, dtype, device, stream);
     } else {
         // If reconfiguration is not needed, ensure the stream is up-to-date
         ifft->updateStreamIfNeeded(stream);
     }
     ifft->initializeYpad(nside);
 
+    // Use pre-allocated buffers and zero in-place (CUDA graph compatible)
+    torch::Tensor& x_pad_storage = ifft->getXpad();
+    torch::Tensor& f_storage = ifft->getF();
+
+    // Zero in-place - this is CUDA graph compatible
+    x_pad_storage.zero_();
+    f_storage.zero_();
+
+    // Create views with proper batch shape (slice for smaller batches)
+    auto x_pad = x_pad_storage.slice(0, 0, n * ntheta).view(x_pad_size);
+    auto f = f_storage.slice(0, 0, n).view(f_size);
+
     irfft_phase_shift_batch_dispatch(ftm, L, nside, stream);
     irfft_pre_process_x_pad_batch_dispatch(ftm, x_pad, L, padding, nside, order, stream);
 
     ifft->execute_forward(x_pad);
 
-    x_pad = x_pad * ifft->getYpad();
-    //x_y_pad_conv_batch_dispatch(x_pad, ifft->getYpad(), padding, nside);
+    x_pad.mul_(ifft->getYpad());
 
     ifft->execute_inverse(x_pad);
 
@@ -164,18 +181,26 @@ torch::Tensor healpix_rfft_class(torch::Tensor f, int L, int nside) {
     // Create FFT object and initialize y_pad if not already done
 
     static HealpixFFT* fft = nullptr;
-    if (!fft || fft->needsReconfiguration(ntheta, 1, padding, dtype, device)) {
+    if (!fft || fft->needsReconfiguration(ntheta, 1, padding, L, dtype, device)) {
         delete fft; // Properly deallocate existing object
-        fft = new HealpixFFT(ntheta, 1, padding, dtype, device, stream);
+        fft = new HealpixFFT(ntheta, 1, padding, L, dtype, device, stream);
     } else {
         // If reconfiguration is not needed, ensure the stream is up-to-date
         fft->updateStreamIfNeeded(stream);
     }
     fft->initializeYpad(nside);
 
-    // Allocate tensors and perform FFT operations
-    auto ftm = torch::zeros({ntheta, L}, torch::dtype(dtype).device(device));
-    auto x_pad = torch::zeros({ntheta, padding}, torch::dtype(dtype).device(device));
+    // Use pre-allocated buffers and zero in-place (CUDA graph compatible)
+    torch::Tensor& x_pad_storage = fft->getXpad();
+    torch::Tensor& ftm_storage = fft->getFtm();
+
+    // Zero in-place - this is CUDA graph compatible
+    x_pad_storage.zero_();
+    ftm_storage.zero_();
+
+    // Create views with proper shape
+    auto x_pad = x_pad_storage.view({ntheta, padding});
+    auto ftm = ftm_storage.view({ntheta, L});
 
     rfft_pre_process_x_pad_dispatch(x_pad, f, padding, nside, stream);
     fft->execute_forward(x_pad);
@@ -183,8 +208,6 @@ torch::Tensor healpix_rfft_class(torch::Tensor f, int L, int nside) {
     x_pad.mul_(fft->getYpad());
 
     fft->execute_inverse(x_pad);
-
-    // x_pad.div_(padding);
 
     rfft_post_process_dispatch(x_pad, ftm, L, padding, nside, stream);
     rfft_phase_shift_dispatch(ftm, L, nside, stream);
@@ -199,28 +222,35 @@ torch::Tensor healpix_irfft_class(torch::Tensor ftm, int L, int nside) {
 
     auto device = ftm.device();
     auto dtype = ftm.scalar_type() == torch::kComplexDouble ? torch::kComplexDouble : torch::kComplexFloat;
-    auto ftype = dtype == torch::kComplexDouble ? torch::kDouble : torch::kFloat;
 
     // Retrieve the current CUDA stream
     at::cuda::CUDAStream stream = at::cuda::getCurrentCUDAStream();
     // Use CUDAStreamGuard to set the current stream (though it's already set, this makes it explicit)
     at::cuda::CUDAStreamGuard guard(stream);
 
-
-    auto f = torch::zeros({12 * nside * nside}, torch::dtype(ftype).device(device));
-    auto x_pad = torch::zeros({ntheta, padding}, torch::dtype(dtype).device(device));
-
     // Instantiate FFT object
 
     static HealpixIFFT* ifft = nullptr;
-    if (!ifft || ifft->needsReconfiguration(ntheta, 1, padding, dtype, device)) {
+    if (!ifft || ifft->needsReconfiguration(ntheta, 1, padding, nside, dtype, device)) {
         delete ifft; // Properly deallocate existing object
-        ifft = new HealpixIFFT(ntheta, 1, padding, dtype, device, stream);
+        ifft = new HealpixIFFT(ntheta, 1, padding, nside, dtype, device, stream);
     } else {
         // If reconfiguration is not needed, ensure the stream is up-to-date
         ifft->updateStreamIfNeeded(stream);
     }
     ifft->initializeYpad(nside);
+
+    // Use pre-allocated buffers and zero in-place (CUDA graph compatible)
+    torch::Tensor& x_pad_storage = ifft->getXpad();
+    torch::Tensor& f_storage = ifft->getF();
+
+    // Zero in-place - this is CUDA graph compatible
+    x_pad_storage.zero_();
+    f_storage.zero_();
+
+    // Create views with proper shape
+    auto x_pad = x_pad_storage.view({ntheta, padding});
+    auto f = f_storage.view({12 * nside * nside});
 
     irfft_phase_shift_dispatch(ftm, L, nside, stream);
 
