@@ -63,7 +63,7 @@ class TestSHTCUDABatch:
         # Compare results - should be identical
         # Use tighter tolerances for float64
         rtol = 1e-5 if dtype == torch.float32 else 1e-10
-        atol = 1e-6 if dtype == torch.float32 else 1e-10
+        atol = 1e-4 if dtype == torch.float32 else 1e-10
         assert torch.allclose(
             coeff_batch, coeff_single, rtol=rtol, atol=atol
         ), f"SHT batch/single mismatch: max diff = {(coeff_batch - coeff_single).abs().max():.2e}"

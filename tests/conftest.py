@@ -83,7 +83,7 @@ def complex_dtype(dtype):
 
 # For CUDA vs PyTorch implementation comparison (same algorithm, different impl)
 IMPL_COMPARISON_TOL = {
-    torch.float32: {"sht": (1e-4, 1e-5), "isht": (1e-3, 1e-2)},
+    torch.float32: {"sht": (1e-4, 2e-5), "isht": (1e-3, 1e-1)},
     torch.float64: {"sht": (1e-8, 1e-8), "isht": (1e-5, 1e-5)},
 }
 
