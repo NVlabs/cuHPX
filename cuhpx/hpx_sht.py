@@ -620,6 +620,10 @@ class SHTCUDA(nn.Module):
         self.register_buffer("pct", pct, persistent=False)
         self.register_buffer("W", W, persistent=False)
 
+        # Pre-compute pct in both dtypes for CUDA graph compatibility
+        pct_f64 = pct.double()
+        self.register_buffer("pct_f64", pct_f64, persistent=False)
+
         # Pre-compute pct * weights for CUDA graph compatibility (avoids allocation during forward)
         pct_weights = pct * weights
         pct_weights_f64 = pct_weights.double()
@@ -633,7 +637,7 @@ class SHTCUDA(nn.Module):
         # Use pre-computed weights based on input dtype for CUDA graph compatibility
         # Note: No stream context manager - runs on caller's stream (required for CUDA graph capture)
         if x.dtype == torch.float64:
-            return SHTFunction.apply(x, self.pct_weights_f64, self.pct, self.W, self.mmax, self.lmax, self.nside)
+            return SHTFunction.apply(x, self.pct_weights_f64, self.pct_f64, self.W, self.mmax, self.lmax, self.nside)
         else:
             return SHTFunction.apply(x, self.pct_weights, self.pct, self.W, self.mmax, self.lmax, self.nside)
 

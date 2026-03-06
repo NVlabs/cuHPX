@@ -90,7 +90,7 @@ class TestSHTBluestein:
         max_l = min(lmax // 2, nside // 2)
         for l_idx in range(max_l):
             for m_idx in range(min(l_idx + 1, mmax)):
-                coeffs[l_idx, m_idx] = torch.randn(1, dtype=dtype).item()
+                coeffs[l_idx, m_idx] = torch.randn(1, dtype=dtype).item() + 1j * torch.randn(1, dtype=dtype).item()
 
         signal = isht_bluestein(coeffs)
         coeff_back = sht_bluestein(signal)

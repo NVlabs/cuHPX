@@ -69,7 +69,7 @@ void rfft_pre_process_x_pad_batch_float4_dispatch(torch::Tensor x_pad, torch::Te
 class HealpixFFT{
 public:
     // Constructor initializes only the essential variables and FFT plan
-    HealpixFFT(int ntheta, int n, int padding, int L, torch::Dtype dtype, torch::Device device, at::cuda::CUDAStream stream)
+    HealpixFFT(int ntheta, int n, int padding, int L, torch::Dtype dtype, torch::Device device, const at::cuda::CUDAStream &stream)
         : ntheta_(ntheta), n_(n), padding_(padding), L_(L), dtype_(dtype), device_(device), y_pad_initialized_(false), stream_(stream){
 
         if (dtype == torch::kComplexDouble) {
