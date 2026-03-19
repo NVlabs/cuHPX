@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.resources
 import os
 
 import numpy as np
-import pkg_resources
 import torch
 from astropy.io import fits
 
@@ -26,8 +26,7 @@ DATAPATH = None
 def get_datapath():
     global DATAPATH
     if DATAPATH is None:
-        # Using pkg_resources to ensure the path is correctly resolved for installed packages
-        DATAPATH = pkg_resources.resource_filename('cuhpx', 'data')
+        DATAPATH = importlib.resources.files('cuhpx').joinpath('data')
     return DATAPATH
 
 
