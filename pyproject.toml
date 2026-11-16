@@ -39,7 +39,7 @@ test = ["pytest>=7.0", "pytest-cov>=4.0", "healpy"]
 
 [tool.scikit-build]
 wheel.packages = ["cuhpx"]
-cmake.minimum-version = "3.18"
+cmake.version = ">=3.18"
 cmake.source-dir = "."
 # Keep build artifacts in build/, not alongside sources
 build-dir = "build/{wheel_tag}"
